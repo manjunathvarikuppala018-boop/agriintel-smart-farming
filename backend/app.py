@@ -1,19 +1,47 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import joblib
-import numpy as np
-import pandas as pd
-import json
+import gdown
 import os
+import json
 import time
 import warnings
-warnings.filterwarnings('ignore')
+import numpy as np
+import pandas as pd
+import joblib
 
-app = Flask(__name__)
-CORS(app)
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+warnings.filterwarnings('ignore')
 
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+MODEL_FILES = {
+    'random_forest.pkl'         : '11R9TQf5aYn0PVobQUgXg1q2GNS0zcq6G',
+    'scaler.pkl'                : '1RajjlR5nlLAb9VKQq45TzEiWWQ-mc25a',
+    'label_encoder.pkl'         : '1kZ4p5tlDyKV3DJ8rhpviAAHd85JYgLZC',
+    'yield_model.pkl'           : '10i3Vhipy07hX7ipQdwkISAQOABhvohAa',
+    'yield_scaler.pkl'          : '11hBnJay_odIVntR2Im_TCVlSh3hlHtJK',
+    'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
+    'disease_cnn.h5'            : '1e4rCJ9LiP2XmmS9aW0ZpOS7hVzq3HGxB',
+    'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
+}
+
+for filename, file_id in MODEL_FILES.items():
+    filepath = os.path.join(MODEL_DIR, filename)
+    if not os.path.exists(filepath):
+        print(f"Downloading {filename}...")
+        gdown.download(
+            f'https://drive.google.com/uc?id={file_id}',
+            filepath,
+            quiet=False
+        )
+
+app = Flask(__name__)
+CORS(app, origins=[
+    'http://localhost:5173',
+    'https://*.vercel.app'
+])
 
 crop_model   = joblib.load(os.path.join(MODEL_DIR, 'random_forest.pkl'))
 scaler       = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
@@ -35,7 +63,6 @@ if os.path.exists(cnn_path) and os.path.exists(labels_path):
     with open(labels_path) as f:
         label_map = json.load(f)
     print("CNN model loaded successfully")
-
 
 CROP_MOISTURE = {
     'rice'      : {'min': 60, 'max': 80, 'optimal': 70},
@@ -60,19 +87,19 @@ def irrigation_advice(rainfall, temperature, humidity):
     if rainfall > 200:
         return {
             'level'  : 'Low',
-            'amount' : '100–150 mm/season',
+            'amount' : '100-150 mm/season',
             'method' : 'Rainfall is sufficient. Supplement only during dry spells.'
         }
     elif rainfall > 100:
         return {
             'level'  : 'Moderate',
-            'amount' : '200–300 mm/season',
+            'amount' : '200-300 mm/season',
             'method' : 'Drip or sprinkler irrigation recommended.'
         }
     else:
         return {
             'level'  : 'High',
-            'amount' : '350–500 mm/season',
+            'amount' : '350-500 mm/season',
             'method' : 'Flood or furrow irrigation required. Monitor soil moisture daily.'
         }
 
@@ -143,12 +170,7 @@ def health():
     return jsonify({
         'status'     : 'running',
         'cnn_loaded' : cnn_model is not None,
-        'models'     : [
-            'random_forest',
-            'yield_model',
-            'disease_db',
-            'cnn_image'
-        ],
+        'models'     : ['random_forest', 'yield_model', 'disease_db', 'cnn_image'],
         'version'    : '1.0.0'
     })
 
@@ -161,7 +183,6 @@ def recommend():
     )
     if not valid:
         return jsonify({'error': error}), 400
-
     try:
         n    = float(data['N'])
         p    = float(data['P'])
@@ -197,7 +218,6 @@ def recommend():
                 'weather': {'temperature': temp, 'humidity': hum, 'rainfall': rain}
             }
         })
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -210,7 +230,6 @@ def predict_yield():
     )
     if not valid:
         return jsonify({'error': error}), 400
-
     try:
         features   = yield_scaler.transform([[
             float(data['rainfall']),
@@ -219,13 +238,11 @@ def predict_yield():
             float(data['year'])
         ]])
         prediction = yield_model.predict(features)[0]
-
         return jsonify({
             'yield_hg_per_ha'    : round(float(prediction), 2),
             'yield_kg_per_ha'    : round(float(prediction) / 10, 2),
             'yield_tonnes_per_ha': round(float(prediction) / 10000, 3)
         })
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -238,7 +255,6 @@ def disease_symptoms():
 
     if not crop:
         return jsonify({'error': 'Crop name is required'}), 400
-
     if crop not in DISEASE_DB:
         return jsonify({
             'status'          : 'crop_not_found',
@@ -248,12 +264,8 @@ def disease_symptoms():
     results = []
     for disease_name, info in DISEASE_DB[crop].items():
         known   = info['symptoms']
-        matched = [
-            s for s in symptoms
-            if any(s in k or k in s for k in known)
-        ]
-        score = len(matched) / len(known) if known else 0
-
+        matched = [s for s in symptoms if any(s in k or k in s for k in known)]
+        score   = len(matched) / len(known) if known else 0
         if score > 0:
             results.append({
                 'disease'          : disease_name.replace('_', ' ').title(),
@@ -267,7 +279,6 @@ def disease_symptoms():
             })
 
     results.sort(key=lambda x: x['confidence_pct'], reverse=True)
-
     return jsonify({
         'crop'   : crop,
         'status' : 'found' if results else 'no_match',
@@ -282,23 +293,16 @@ def disease_image():
             'error'  : 'CNN model not loaded',
             'message': 'Use symptom-based detection instead.'
         }), 503
-
     if 'file' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
-
     try:
         from PIL import Image
         import io
-
         file      = request.files['file']
-        img       = Image.open(
-                        io.BytesIO(file.read())
-                    ).convert('RGB').resize((64, 64))
+        img       = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
         img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
-
         predictions = cnn_model.predict(img_array, verbose=0)
         top3_idx    = np.argsort(predictions[0])[::-1][:3]
-
         results = [
             {
                 'rank'       : i + 1,
@@ -307,12 +311,7 @@ def disease_image():
             }
             for i, idx in enumerate(top3_idx)
         ]
-
-        return jsonify({
-            'method' : 'cnn_image',
-            'results': results
-        })
-
+        return jsonify({'method': 'cnn_image', 'results': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -330,7 +329,6 @@ def sensor_reading():
         'Optimal' if humidity <= 70 else
         'High'
     )
-
     humidity_advice = (
         'Risk of drought stress. Consider misting.'
         if humidity < 30 else
@@ -338,18 +336,10 @@ def sensor_reading():
         if humidity <= 70 else
         'High humidity — risk of fungal disease. Improve ventilation.'
     )
-
     return jsonify({
         'moisture'   : water_level_recommendation(moisture, crop),
-        'humidity'   : {
-            'value'  : humidity,
-            'status' : humidity_status,
-            'advice' : humidity_advice
-        },
-        'temperature': {
-            'value'  : temperature,
-            'unit'   : 'Celsius'
-        },
+        'humidity'   : {'value': humidity, 'status': humidity_status, 'advice': humidity_advice},
+        'temperature': {'value': temperature, 'unit': 'Celsius'},
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S')
     })
 
