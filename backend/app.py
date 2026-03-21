@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 
 # ==============================
 
-BASE_DIR  = os.path.dirname(os.path.abspath(**file**))
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -305,4 +305,5 @@ return jsonify({"moisture_status": status})
 # ==============================
 
 if **name** == '**main**':
-app.run(debug=True, port=5000)
+port = int(os.environ.get("PORT", 5000))
+app.run(host="0.0.0.0", port=port)
