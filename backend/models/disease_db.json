@@ -1,0 +1,260 @@
+{
+  "rice": {
+    "blast": {
+      "symptoms": [
+        "brown spots",
+        "diamond lesions",
+        "gray center",
+        "white spots",
+        "leaf spots",
+        "neck rot"
+      ],
+      "cause": "Fungal \u2014 Magnaporthe oryzae",
+      "treatment": "Apply Tricyclazole 75 WP at 0.6 g/litre. Remove infected plants immediately.",
+      "prevention": "Use resistant varieties. Avoid excess nitrogen. Ensure proper drainage.",
+      "severity": "High"
+    },
+    "bacterial_blight": {
+      "symptoms": [
+        "yellowing edges",
+        "wilting",
+        "water soaked lesions",
+        "yellow leaves",
+        "leaf scorch"
+      ],
+      "cause": "Bacterial \u2014 Xanthomonas oryzae",
+      "treatment": "Spray Streptocycline 500 ppm. Remove infected debris from field.",
+      "prevention": "Use certified disease-free seeds. Maintain field sanitation.",
+      "severity": "High"
+    },
+    "sheath_blight": {
+      "symptoms": [
+        "oval lesions",
+        "white mycelium",
+        "lodging",
+        "sheath spots",
+        "irregular lesions"
+      ],
+      "cause": "Fungal \u2014 Rhizoctonia solani",
+      "treatment": "Apply Hexaconazole 5 EC at 2 ml/litre.",
+      "prevention": "Avoid dense planting. Reduce nitrogen dosage.",
+      "severity": "Medium"
+    },
+    "brown_spot": {
+      "symptoms": [
+        "circular brown spots",
+        "yellow halo",
+        "dark brown lesions",
+        "oval spots"
+      ],
+      "cause": "Fungal \u2014 Helminthosporium oryzae",
+      "treatment": "Apply Mancozeb 75 WP at 2.5 g/litre.",
+      "prevention": "Balanced fertilization. Treat seeds before sowing.",
+      "severity": "Medium"
+    }
+  },
+  "maize": {
+    "northern_blight": {
+      "symptoms": [
+        "cigar shaped lesions",
+        "gray green spots",
+        "tan streaks",
+        "long spots",
+        "leaf blight"
+      ],
+      "cause": "Fungal \u2014 Exserohilum turcicum",
+      "treatment": "Apply Mancozeb 75 WP at 2 g/litre.",
+      "prevention": "Plant resistant hybrids. Rotate crops annually.",
+      "severity": "High"
+    },
+    "common_rust": {
+      "symptoms": [
+        "brown pustules",
+        "yellow leaves",
+        "powdery rust",
+        "leaf death",
+        "orange pustules"
+      ],
+      "cause": "Fungal \u2014 Puccinia sorghi",
+      "treatment": "Apply Propiconazole 25 EC at 1 ml/litre.",
+      "prevention": "Plant early. Use rust resistant varieties.",
+      "severity": "Medium"
+    },
+    "gray_leaf_spot": {
+      "symptoms": [
+        "rectangular lesions",
+        "gray spots",
+        "tan colored spots",
+        "necrotic lesions"
+      ],
+      "cause": "Fungal \u2014 Cercospora zeae-maydis",
+      "treatment": "Apply Azoxystrobin at recommended dosage.",
+      "prevention": "Crop rotation. Avoid overhead irrigation.",
+      "severity": "Medium"
+    }
+  },
+  "wheat": {
+    "yellow_rust": {
+      "symptoms": [
+        "yellow stripes",
+        "powdery pustules",
+        "leaf curling",
+        "yellow powder",
+        "stripe rust"
+      ],
+      "cause": "Fungal \u2014 Puccinia striiformis",
+      "treatment": "Apply Propiconazole or Tebuconazole at recommended dose.",
+      "prevention": "Grow resistant varieties. Monitor during cool humid weather.",
+      "severity": "High"
+    },
+    "powdery_mildew": {
+      "symptoms": [
+        "white powder",
+        "powdery coating",
+        "stunted growth",
+        "white coating",
+        "fluffy growth"
+      ],
+      "cause": "Fungal \u2014 Blumeria graminis",
+      "treatment": "Spray Sulphur 80 WP at 3 g/litre.",
+      "prevention": "Avoid dense sowing. Ensure good air circulation.",
+      "severity": "Medium"
+    },
+    "loose_smut": {
+      "symptoms": [
+        "black powder",
+        "dark spores",
+        "destroyed grains",
+        "smutted ears",
+        "black ear"
+      ],
+      "cause": "Fungal \u2014 Ustilago tritici",
+      "treatment": "Seed treatment with Carboxin 75 WP at 2 g/kg seed.",
+      "prevention": "Use certified smut-free seeds.",
+      "severity": "High"
+    }
+  },
+  "cotton": {
+    "bollworm": {
+      "symptoms": [
+        "holes in bolls",
+        "damaged squares",
+        "larval presence",
+        "boll damage",
+        "entry holes"
+      ],
+      "cause": "Insect \u2014 Helicoverpa armigera",
+      "treatment": "Spray Chlorpyrifos 20 EC at 2.5 ml/litre.",
+      "prevention": "Use Bt cotton. Install pheromone traps.",
+      "severity": "High"
+    },
+    "leaf_curl": {
+      "symptoms": [
+        "curling leaves",
+        "thickened veins",
+        "stunted plant",
+        "upward curl",
+        "leaf distortion"
+      ],
+      "cause": "Viral \u2014 transmitted by whitefly",
+      "treatment": "No cure available. Remove and destroy infected plants immediately.",
+      "prevention": "Control whitefly with Imidacloprid. Use virus-free seeds.",
+      "severity": "High"
+    },
+    "bacterial_blight": {
+      "symptoms": [
+        "angular spots",
+        "water soaked spots",
+        "brown lesions",
+        "boll rot",
+        "angular lesions"
+      ],
+      "cause": "Bacterial \u2014 Xanthomonas axonopodis",
+      "treatment": "Spray Copper Oxychloride 50 WP at 3 g/litre.",
+      "prevention": "Use resistant varieties. Avoid waterlogging.",
+      "severity": "Medium"
+    }
+  },
+  "tomato": {
+    "early_blight": {
+      "symptoms": [
+        "dark brown spots",
+        "concentric rings",
+        "yellowing",
+        "circular spots",
+        "target spots"
+      ],
+      "cause": "Fungal \u2014 Alternaria solani",
+      "treatment": "Apply Mancozeb 75 WP or Chlorothalonil at 2 g/litre.",
+      "prevention": "Avoid overhead irrigation. Remove infected leaves.",
+      "severity": "Medium"
+    },
+    "late_blight": {
+      "symptoms": [
+        "water soaked lesions",
+        "white mold",
+        "plant collapse",
+        "rapid wilting",
+        "dark patches"
+      ],
+      "cause": "Oomycete \u2014 Phytophthora infestans",
+      "treatment": "Apply Metalaxyl + Mancozeb at 2.5 g/litre immediately.",
+      "prevention": "Avoid wet conditions. Ensure good drainage.",
+      "severity": "High"
+    },
+    "leaf_curl": {
+      "symptoms": [
+        "curling leaves",
+        "yellowing",
+        "stunted growth",
+        "mosaic pattern",
+        "leaf roll"
+      ],
+      "cause": "Viral \u2014 Tomato Yellow Leaf Curl Virus",
+      "treatment": "Remove infected plants. Control whitefly vectors.",
+      "prevention": "Use resistant varieties. Install insect-proof nets.",
+      "severity": "High"
+    }
+  },
+  "potato": {
+    "late_blight": {
+      "symptoms": [
+        "dark lesions",
+        "white mold underside",
+        "rotting tubers",
+        "water soaked spots",
+        "brown patches"
+      ],
+      "cause": "Oomycete \u2014 Phytophthora infestans",
+      "treatment": "Apply Metalaxyl + Mancozeb at 2.5 g/litre.",
+      "prevention": "Use certified seed. Avoid waterlogging.",
+      "severity": "High"
+    },
+    "early_blight": {
+      "symptoms": [
+        "brown spots",
+        "target pattern",
+        "lower leaf yellowing",
+        "dark rings",
+        "concentric spots"
+      ],
+      "cause": "Fungal \u2014 Alternaria solani",
+      "treatment": "Spray Chlorothalonil 75 WP at 2 g/litre.",
+      "prevention": "Crop rotation. Remove plant debris after harvest.",
+      "severity": "Medium"
+    },
+    "blackleg": {
+      "symptoms": [
+        "black stem base",
+        "yellowing",
+        "wilting",
+        "slimy stem",
+        "stem rot"
+      ],
+      "cause": "Bacterial \u2014 Pectobacterium atrosepticum",
+      "treatment": "No effective cure. Remove and destroy infected plants.",
+      "prevention": "Use disease-free seed tubers. Improve drainage.",
+      "severity": "High"
+    }
+  }
+}
