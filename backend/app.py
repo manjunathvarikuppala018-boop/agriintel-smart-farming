@@ -1,5 +1,6 @@
 import gdown
 import os
+import sys
 import json
 import time
 import warnings
@@ -27,15 +28,31 @@ MODEL_FILES = {
     'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
 }
 
+print("=== Checking model files ===")
 for filename, file_id in MODEL_FILES.items():
     filepath = os.path.join(MODEL_DIR, filename)
     if not os.path.exists(filepath):
         print(f"Downloading {filename}...")
-        gdown.download(
-            f'https://drive.google.com/uc?id={file_id}',
-            filepath,
-            quiet=False
-        )
+        try:
+            gdown.download(
+                id=file_id,
+                output=filepath,
+                quiet=False
+            )
+            if os.path.exists(filepath):
+                size = os.path.getsize(filepath) / (1024 * 1024)
+                print(f"Downloaded {filename} ({size:.1f} MB)")
+            else:
+                print(f"ERROR: {filename} download failed")
+                sys.exit(1)
+        except Exception as e:
+            print(f"ERROR downloading {filename}: {e}")
+            sys.exit(1)
+    else:
+        size = os.path.getsize(filepath) / (1024 * 1024)
+        print(f"Found {filename} ({size:.1f} MB)")
+
+print("=== All models ready ===")
 
 app = Flask(__name__)
 CORS(app, origins=[
@@ -298,15 +315,15 @@ def disease_image():
     try:
         from PIL import Image
         import io
-        file      = request.files['file']
-        img       = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
-        img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+        file        = request.files['file']
+        img         = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
+        img_array   = np.expand_dims(np.array(img) / 255.0, axis=0)
         predictions = cnn_model.predict(img_array, verbose=0)
         top3_idx    = np.argsort(predictions[0])[::-1][:3]
         results = [
             {
                 'rank'       : i + 1,
-                'disease'    : label_map[str(idx)].replace('_', ' ').replace('__', ' — '),
+                'disease'    : label_map[str(idx)].replace('_', ' ').replace('__', ' - '),
                 'confidence' : round(float(predictions[0][idx]) * 100, 2)
             }
             for i, idx in enumerate(top3_idx)
@@ -334,7 +351,7 @@ def sensor_reading():
         if humidity < 30 else
         'Humidity levels are ideal for plant growth.'
         if humidity <= 70 else
-        'High humidity — risk of fungal disease. Improve ventilation.'
+        'High humidity - risk of fungal disease. Improve ventilation.'
     )
     return jsonify({
         'moisture'   : water_level_recommendation(moisture, crop),
