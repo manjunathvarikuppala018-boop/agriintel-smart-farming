@@ -17,11 +17,11 @@ MODEL_DIR = os.path.join(BASE_DIR, 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 MODEL_FILES = {
-    'random_forest.pkl'         : '1iqZU-mMvFt1paA6tpRHEDK3HtzQznRKI',
-    'scaler.pkl'                : '10SOOAGD378Y56hXf-5ZZV42oWeE9d5AH',
-    'label_encoder.pkl'         : '1zZsTMKn3TUAtfGvxj0HPP2puFNQEFWwd',
-    'yield_model.pkl'           : '1RqBUFDIrtO4zXUp7Ee29iXu0FC2sCPHd',
-    'yield_scaler.pkl'          : '1Cc1j4q-BwK2gXy90eQJfnd8DRmgbBNyf',
+    'random_forest.pkl'         : '1y_Dc4akcc_E7opi0Y5bL6_QKTvRv4ELt',
+    'scaler.pkl'                : '1j4MhPUAlO9abpp59ewFvkPwohyj5v6Um',
+    'label_encoder.pkl'         : '1iqK6fxDZlvieNMPQMRaVsApMweJ6VVFt',
+    'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
+    'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
     'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
     'disease_cnn.h5'            : '1e4rCJ9LiP2XmmS9aW0ZpOS7hVzq3HGxB',
     'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
