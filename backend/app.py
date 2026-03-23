@@ -1,3 +1,4 @@
+import gdown
 import os
 import sys
 import json
@@ -13,36 +14,59 @@ warnings.filterwarnings('ignore')
 
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-print(f"Model directory: {MODEL_DIR}")
-print(f"Files found: {os.listdir(MODEL_DIR) if os.path.exists(MODEL_DIR) else 'MISSING'}")
+MODEL_FILES = {
+    'random_forest.pkl'         : '1iqZU-mMvFt1paA6tpRHEDK3HtzQznRKI',
+    'scaler.pkl'                : '10SOOAGD378Y56hXf-5ZZV42oWeE9d5AH',
+    'label_encoder.pkl'         : '1zZsTMKn3TUAtfGvxj0HPP2puFNQEFWwd',
+    'yield_model.pkl'           : '1RqBUFDIrtO4zXUp7Ee29iXu0FC2sCPHd',
+    'yield_scaler.pkl'          : '1Cc1j4q-BwK2gXy90eQJfnd8DRmgbBNyf',
+    'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
+    'disease_cnn.h5'            : '1e4rCJ9LiP2XmmS9aW0ZpOS7hVzq3HGxB',
+    'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
+}
+
+print("=== Checking model files ===")
+for filename, file_id in MODEL_FILES.items():
+    filepath = os.path.join(MODEL_DIR, filename)
+    if not os.path.exists(filepath):
+        print(f"Downloading {filename}...")
+        try:
+            gdown.download(id=file_id, output=filepath, quiet=False)
+            if os.path.exists(filepath):
+                size = os.path.getsize(filepath) / (1024 * 1024)
+                print(f"Downloaded {filename} ({size:.1f} MB)")
+            else:
+                print(f"Failed: {filename}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error downloading {filename}: {e}")
+            sys.exit(1)
+    else:
+        size = os.path.getsize(filepath) / (1024 * 1024)
+        print(f"Found {filename} ({size:.1f} MB)")
+
+print("=== All models ready ===")
 
 app = Flask(__name__)
-CORS(app, origins=['http://localhost:5173', 'https://*.vercel.app'])
+CORS(app, origins=[
+    'http://localhost:5173',
+    'https://agriintel-smart-farming.vercel.app',
+    'https://*.vercel.app'
+])
 
-
-def safe_load(filename):
-    path = os.path.join(MODEL_DIR, filename)
-    try:
-        model = joblib.load(path)
-        print(f"Loaded: {filename}")
-        return model
-    except Exception as e:
-        print(f"Failed: {filename} — {e}")
-        return None
-
-
-crop_model   = safe_load('random_forest.pkl')
-scaler       = safe_load('scaler.pkl')
-le           = safe_load('label_encoder.pkl')
-yield_model  = safe_load('yield_model.pkl')
-yield_scaler = safe_load('yield_scaler.pkl')
+crop_model   = joblib.load(os.path.join(MODEL_DIR, 'random_forest.pkl'))
+scaler       = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
+le           = joblib.load(os.path.join(MODEL_DIR, 'label_encoder.pkl'))
+yield_model  = joblib.load(os.path.join(MODEL_DIR, 'yield_model.pkl'))
+yield_scaler = joblib.load(os.path.join(MODEL_DIR, 'yield_scaler.pkl'))
 
 with open(os.path.join(MODEL_DIR, 'disease_db.json')) as f:
     DISEASE_DB = json.load(f)
 
-cnn_model = None
-label_map = None
+cnn_model   = None
+label_map   = None
 cnn_path    = os.path.join(MODEL_DIR, 'disease_cnn.h5')
 labels_path = os.path.join(MODEL_DIR, 'disease_class_labels.json')
 
@@ -52,10 +76,9 @@ if os.path.exists(cnn_path) and os.path.exists(labels_path):
         cnn_model = load_model(cnn_path)
         with open(labels_path) as f:
             label_map = json.load(f)
-        print("CNN model loaded")
+        print("CNN model loaded successfully")
     except Exception as e:
         print(f"CNN load failed: {e}")
-
 
 CROP_MOISTURE = {
     'rice'      : {'min': 60, 'max': 80, 'optimal': 70},
@@ -118,21 +141,37 @@ def water_level_recommendation(moisture_pct, crop=None):
     deficit      = optimal - moisture_pct
 
     if moisture_pct < min_req - 10:
-        return {'status': 'Critical', 'water_needed': True,
-                'action': 'Irrigate immediately', 'urgency': 'High',
-                'water_amount_mm': round(deficit * 0.8, 1)}
+        return {
+            'status'          : 'Critical',
+            'water_needed'    : True,
+            'action'          : 'Irrigate immediately',
+            'urgency'         : 'High',
+            'water_amount_mm' : round(deficit * 0.8, 1)
+        }
     elif moisture_pct < min_req:
-        return {'status': 'Low', 'water_needed': True,
-                'action': 'Irrigation required within 24 hours', 'urgency': 'Medium',
-                'water_amount_mm': round(deficit * 0.5, 1)}
+        return {
+            'status'          : 'Low',
+            'water_needed'    : True,
+            'action'          : 'Irrigation required within 24 hours',
+            'urgency'         : 'Medium',
+            'water_amount_mm' : round(deficit * 0.5, 1)
+        }
     elif moisture_pct <= max_req:
-        return {'status': 'Optimal', 'water_needed': False,
-                'action': 'No irrigation needed', 'urgency': 'None',
-                'water_amount_mm': 0}
+        return {
+            'status'          : 'Optimal',
+            'water_needed'    : False,
+            'action'          : 'No irrigation needed',
+            'urgency'         : 'None',
+            'water_amount_mm' : 0
+        }
     else:
-        return {'status': 'Excess', 'water_needed': False,
-                'action': 'Stop irrigation. Improve drainage.', 'urgency': 'Low',
-                'water_amount_mm': 0}
+        return {
+            'status'          : 'Excess',
+            'water_needed'    : False,
+            'action'          : 'Stop irrigation. Improve drainage.',
+            'urgency'         : 'Low',
+            'water_amount_mm' : 0
+        }
 
 
 @app.route('/health', methods=['GET'])
@@ -147,12 +186,10 @@ def health():
 
 @app.route('/recommend', methods=['POST'])
 def recommend():
-    data = request.get_json()
-    required = ['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
-    missing  = [f for f in required if f not in data]
+    data    = request.get_json()
+    missing = [f for f in ['N','P','K','temperature','humidity','ph','rainfall'] if f not in data]
     if missing:
         return jsonify({'error': f'Missing fields: {missing}'}), 400
-
     try:
         n    = float(data['N'])
         p    = float(data['P'])
@@ -170,8 +207,10 @@ def recommend():
 
         top3_idx     = np.argsort(probability[0])[::-1][:3]
         alternatives = [
-            {'crop': le.inverse_transform([i])[0],
-             'confidence': round(float(probability[0][i]) * 100, 2)}
+            {
+                'crop'       : le.inverse_transform([i])[0],
+                'confidence' : round(float(probability[0][i]) * 100, 2)
+            }
             for i in top3_idx
         ]
 
@@ -192,12 +231,10 @@ def recommend():
 
 @app.route('/yield', methods=['POST'])
 def predict_yield():
-    data = request.get_json()
-    required = ['rainfall', 'temperature', 'pesticides', 'year']
-    missing  = [f for f in required if f not in data]
+    data    = request.get_json()
+    missing = [f for f in ['rainfall','temperature','pesticides','year'] if f not in data]
     if missing:
         return jsonify({'error': f'Missing fields: {missing}'}), 400
-
     try:
         features   = yield_scaler.transform([[
             float(data['rainfall']),
@@ -224,8 +261,10 @@ def disease_symptoms():
     if not crop:
         return jsonify({'error': 'Crop name is required'}), 400
     if crop not in DISEASE_DB:
-        return jsonify({'status': 'crop_not_found',
-                        'supported_crops': list(DISEASE_DB.keys())}), 404
+        return jsonify({
+            'status'          : 'crop_not_found',
+            'supported_crops' : list(DISEASE_DB.keys())
+        }), 404
 
     results = []
     for disease_name, info in DISEASE_DB[crop].items():
@@ -234,27 +273,31 @@ def disease_symptoms():
         score   = len(matched) / len(known) if known else 0
         if score > 0:
             results.append({
-                'disease'         : disease_name.replace('_', ' ').title(),
-                'confidence_pct'  : round(score * 100, 1),
-                'severity'        : info['severity'],
-                'cause'           : info['cause'],
-                'matched_symptoms': matched,
-                'treatment'       : info['treatment'],
-                'prevention'      : info['prevention'],
-                'method'          : 'rule_based'
+                'disease'          : disease_name.replace('_', ' ').title(),
+                'confidence_pct'   : round(score * 100, 1),
+                'severity'         : info['severity'],
+                'cause'            : info['cause'],
+                'matched_symptoms' : matched,
+                'treatment'        : info['treatment'],
+                'prevention'       : info['prevention'],
+                'method'           : 'rule_based'
             })
 
     results.sort(key=lambda x: x['confidence_pct'], reverse=True)
-    return jsonify({'crop': crop,
-                    'status': 'found' if results else 'no_match',
-                    'results': results})
+    return jsonify({
+        'crop'   : crop,
+        'status' : 'found' if results else 'no_match',
+        'results': results
+    })
 
 
 @app.route('/disease/image', methods=['POST'])
 def disease_image():
     if cnn_model is None:
-        return jsonify({'error': 'CNN model not loaded',
-                        'message': 'Use symptom-based detection instead.'}), 503
+        return jsonify({
+            'error'  : 'CNN model not loaded',
+            'message': 'Use symptom-based detection instead.'
+        }), 503
     if 'file' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
     try:
@@ -266,9 +309,11 @@ def disease_image():
         predictions = cnn_model.predict(img_array, verbose=0)
         top3_idx    = np.argsort(predictions[0])[::-1][:3]
         results = [
-            {'rank'      : i + 1,
-             'disease'   : label_map[str(idx)].replace('_', ' ').replace('__', ' - '),
-             'confidence': round(float(predictions[0][idx]) * 100, 2)}
+            {
+                'rank'       : i + 1,
+                'disease'    : label_map[str(idx)].replace('_', ' ').replace('__', ' - '),
+                'confidence' : round(float(predictions[0][idx]) * 100, 2)
+            }
             for i, idx in enumerate(top3_idx)
         ]
         return jsonify({'method': 'cnn_image', 'results': results})
@@ -298,8 +343,15 @@ def sensor_reading():
     )
     return jsonify({
         'moisture'   : water_level_recommendation(moisture, crop),
-        'humidity'   : {'value': humidity, 'status': humidity_status, 'advice': humidity_advice},
-        'temperature': {'value': temperature, 'unit': 'Celsius'},
+        'humidity'   : {
+            'value'  : humidity,
+            'status' : humidity_status,
+            'advice' : humidity_advice
+        },
+        'temperature': {
+            'value'  : temperature,
+            'unit'   : 'Celsius'
+        },
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S')
     })
 
