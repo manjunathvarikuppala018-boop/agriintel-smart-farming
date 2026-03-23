@@ -23,7 +23,7 @@ MODEL_FILES = {
     'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
     'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
     'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
-    'disease_cnn.tflite'        : '1WFe3qZdcXPyG37sMqS9n1POKGWOiGJGn',
+    'disease_cnn.tflite'        : '1o8uEDjf0IMjRfQoSUyOvS8xN93URni-v',
     'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
 }
 
