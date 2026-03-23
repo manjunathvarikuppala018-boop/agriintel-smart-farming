@@ -78,14 +78,8 @@ labels_path        = os.path.join(MODEL_DIR, 'disease_class_labels.json')
 
 if os.path.exists(tflite_path) and os.path.exists(labels_path):
     try:
-        # Try the lightweight tflite-runtime package first, fall back to full TF
-        try:
-            import tflite_runtime.interpreter as tflite
-            tflite_interpreter = tflite.Interpreter(model_path=tflite_path)
-        except ImportError:
-            import tensorflow as tf
-            tflite_interpreter = tf.lite.Interpreter(model_path=tflite_path)
-
+        import tensorflow as tf
+        tflite_interpreter = tf.lite.Interpreter(model_path=tflite_path)
         tflite_interpreter.allocate_tensors()
         with open(labels_path) as f:
             label_map = json.load(f)
