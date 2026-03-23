@@ -30,6 +30,11 @@ MODEL_FILES = {
 print("=== Checking model files ===")
 for filename, file_id in MODEL_FILES.items():
     filepath = os.path.join(MODEL_DIR, filename)
+
+    if filepath.endswith('.pkl') and os.path.exists(filepath):
+        os.remove(filepath)
+        print(f"Removed cached: {filename}")
+
     if not os.path.exists(filepath):
         print(f"Downloading {filename}...")
         try:
