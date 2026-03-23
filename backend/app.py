@@ -23,7 +23,7 @@ MODEL_FILES = {
     'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
     'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
     'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
-    'disease_cnn.h5'            : '1e4rCJ9LiP2XmmS9aW0ZpOS7hVzq3HGxB',
+    'disease_cnn.tflite'        : '1WFe3qZdcXPyG37sMqS9n1POKGWOiGJGn',
     'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
 }
 
@@ -70,20 +70,32 @@ yield_scaler = joblib.load(os.path.join(MODEL_DIR, 'yield_scaler.pkl'))
 with open(os.path.join(MODEL_DIR, 'disease_db.json')) as f:
     DISEASE_DB = json.load(f)
 
-cnn_model   = None
-label_map   = None
-cnn_path    = os.path.join(MODEL_DIR, 'disease_cnn.h5')
-labels_path = os.path.join(MODEL_DIR, 'disease_class_labels.json')
+# ── TFLite inference (replaces full TensorFlow / Keras) ──────────────────────
+tflite_interpreter = None
+label_map          = None
+tflite_path        = os.path.join(MODEL_DIR, 'disease_cnn.tflite')
+labels_path        = os.path.join(MODEL_DIR, 'disease_class_labels.json')
 
-if os.path.exists(cnn_path) and os.path.exists(labels_path):
+if os.path.exists(tflite_path) and os.path.exists(labels_path):
     try:
-        from tensorflow.keras.models import load_model
-        cnn_model = load_model(cnn_path)
+        # Try the lightweight tflite-runtime package first, fall back to full TF
+        try:
+            import tflite_runtime.interpreter as tflite
+            tflite_interpreter = tflite.Interpreter(model_path=tflite_path)
+        except ImportError:
+            import tensorflow as tf
+            tflite_interpreter = tf.lite.Interpreter(model_path=tflite_path)
+
+        tflite_interpreter.allocate_tensors()
         with open(labels_path) as f:
             label_map = json.load(f)
-        print("CNN model loaded successfully")
+        print("TFLite model loaded successfully")
     except Exception as e:
-        print(f"CNN load failed: {e}")
+        print(f"TFLite load failed: {e}")
+else:
+    print("TFLite model file not found — image disease detection unavailable")
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 CROP_MOISTURE = {
     'rice'      : {'min': 60, 'max': 80, 'optimal': 70},
@@ -182,10 +194,11 @@ def water_level_recommendation(moisture_pct, crop=None):
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
-        'status'     : 'running',
-        'cnn_loaded' : cnn_model is not None,
-        'models'     : ['random_forest', 'yield_model', 'disease_db', 'cnn_image'],
-        'version'    : '1.0.0'
+        'status'      : 'running',
+        'cnn_loaded'  : tflite_interpreter is not None,
+        'cnn_backend' : 'tflite-runtime',
+        'models'      : ['random_forest', 'yield_model', 'disease_db', 'cnn_tflite'],
+        'version'     : '2.0.0'
     })
 
 
@@ -298,7 +311,7 @@ def disease_symptoms():
 
 @app.route('/disease/image', methods=['POST'])
 def disease_image():
-    if cnn_model is None:
+    if tflite_interpreter is None:
         return jsonify({
             'error'  : 'CNN model not loaded',
             'message': 'Use symptom-based detection instead.'
@@ -308,20 +321,29 @@ def disease_image():
     try:
         from PIL import Image
         import io
-        file        = request.files['file']
-        img         = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
-        img_array   = np.expand_dims(np.array(img) / 255.0, axis=0)
-        predictions = cnn_model.predict(img_array, verbose=0)
-        top3_idx    = np.argsort(predictions[0])[::-1][:3]
-        results = [
+
+        file      = request.files['file']
+        img       = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
+        img_array = np.expand_dims(np.array(img, dtype=np.float32) / 255.0, axis=0)
+
+        # TFLite inference
+        input_details  = tflite_interpreter.get_input_details()
+        output_details = tflite_interpreter.get_output_details()
+
+        tflite_interpreter.set_tensor(input_details[0]['index'], img_array)
+        tflite_interpreter.invoke()
+        predictions = tflite_interpreter.get_tensor(output_details[0]['index'])[0]
+
+        top3_idx = np.argsort(predictions)[::-1][:3]
+        results  = [
             {
                 'rank'       : i + 1,
                 'disease'    : label_map[str(idx)].replace('_', ' ').replace('__', ' - '),
-                'confidence' : round(float(predictions[0][idx]) * 100, 2)
+                'confidence' : round(float(predictions[idx]) * 100, 2)
             }
             for i, idx in enumerate(top3_idx)
         ]
-        return jsonify({'method': 'cnn_image', 'results': results})
+        return jsonify({'method': 'tflite_image', 'results': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
