@@ -376,7 +376,50 @@ def sensor_reading():
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S')
     })
 
+latest_sensor_data = {}
 
+@app.route('/sensors/update', methods=['POST'])
+def sensor_update():
+    global latest_sensor_data
+    data        = request.get_json()
+    moisture    = float(data.get('moisture', 0))
+    humidity    = float(data.get('humidity', 0))
+    temperature = float(data.get('temperature', 0))
+    crop        = data.get('crop', 'rice')
+
+    humidity_status = (
+        'Low'     if humidity < 30  else
+        'Optimal' if humidity <= 70 else
+        'High'
+    )
+    humidity_advice = (
+        'Risk of drought stress. Consider misting.'
+        if humidity < 30 else
+        'Humidity levels are ideal for plant growth.'
+        if humidity <= 70 else
+        'High humidity - risk of fungal disease. Improve ventilation.'
+    )
+
+    latest_sensor_data = {
+        'moisture'   : water_level_recommendation(moisture, crop),
+        'humidity'   : {'value': humidity, 'status': humidity_status, 'advice': humidity_advice},
+        'temperature': {'value': temperature, 'unit': 'Celsius'},
+        'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S'),
+        'raw'        : {
+            'moisture'   : moisture,
+            'humidity'   : humidity,
+            'temperature': temperature,
+            'crop'       : crop
+        }
+    }
+    return jsonify({'status': 'updated', 'data': latest_sensor_data})
+
+
+@app.route('/sensors/live', methods=['GET'])
+def sensor_live():
+    if not latest_sensor_data:
+        return jsonify({'status': 'no_data'})
+    return jsonify(latest_sensor_data)
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
