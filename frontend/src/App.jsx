@@ -7,7 +7,7 @@ import './App.css'
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement)
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
+ 
 const SYMPTOMS = {
   rice   : ['brown spots','gray center','diamond lesions','yellowing edges','wilting','water soaked lesions','oval lesions','white mycelium','circular brown spots','yellow halo'],
   wheat  : ['yellow stripes','powdery pustules','leaf curling','white powder','stunted growth','black powder','dark spores'],
@@ -115,6 +115,32 @@ export default function App() {
   const [imagePreview, setImagePreview]   = useState(null)
   const [sensorForm, setSensorForm]       = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
   const [sensorResult, setSensorResult]   = useState(null)
+
+  // ── Live IoT polling ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (tab !== 'sensors') return
+    const poll = async () => {
+      try {
+        const { data } = await axios.get(`${API}/sensors/live`)
+        if (data.status !== 'no_data' && data.moisture) {
+          setSensorResult(data)
+          if (data.raw) {
+            setSensorForm(prev => ({
+              ...prev,
+              moisture   : String(data.raw.moisture),
+              humidity   : String(data.raw.humidity),
+              temperature: String(data.raw.temperature),
+              crop       : data.raw.crop || prev.crop
+            }))
+          }
+        }
+      } catch(e) {}
+    }
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [tab])
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleMain = async e => {
     e.preventDefault(); setLoading(true); setError(''); setMainResult(null)
