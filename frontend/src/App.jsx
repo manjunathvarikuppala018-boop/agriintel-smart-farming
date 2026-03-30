@@ -117,6 +117,8 @@ export default function App() {
   const [sensorResult, setSensorResult]   = useState(null)
 
   // ── Live IoT polling ──────────────────────────────────────────────────────
+  const [userPickedCrop, setUserPickedCrop] = useState(false)
+
   useEffect(() => {
     if (tab !== 'sensors') return
     const poll = async () => {
@@ -130,7 +132,8 @@ export default function App() {
               moisture   : String(data.raw.moisture),
               humidity   : String(data.raw.humidity),
               temperature: String(data.raw.temperature),
-              crop       : data.raw.crop || prev.crop
+              // only update crop if user has not manually picked one
+              crop       : userPickedCrop ? prev.crop : (data.raw.crop || prev.crop)
             }))
           }
         }
@@ -139,7 +142,7 @@ export default function App() {
     poll()
     const interval = setInterval(poll, 3000)
     return () => clearInterval(interval)
-  }, [tab])
+  }, [tab, userPickedCrop])
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleMain = async e => {
@@ -535,7 +538,7 @@ export default function App() {
                   ))}
                   <div className="field">
                     <label>Crop Type</label>
-                    <select value={sensorForm.crop} onChange={e => setSensorForm({...sensorForm,crop:e.target.value})}>
+                    <select value={sensorForm.crop} onChange={e => { setUserPickedCrop(true); setSensorForm({...sensorForm,crop:e.target.value}) }}>
                       {['rice','wheat','maize','cotton','tomato','potato','sugarcane'].map(c => (
                         <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
                       ))}
