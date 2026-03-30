@@ -115,6 +115,8 @@ export default function App() {
   const [imagePreview, setImagePreview]   = useState(null)
   const [sensorForm, setSensorForm]       = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
   const [sensorResult, setSensorResult]   = useState(null)
+  const [suitability, setSuitability]     = useState(null)
+  const [showAnyway, setShowAnyway]       = useState(false)
 
   // ── Live IoT polling ──────────────────────────────────────────────────────
   const [userPickedCrop, setUserPickedCrop] = useState(false)
@@ -175,8 +177,20 @@ export default function App() {
   }
 
   const handleSensor = async e => {
-    e.preventDefault(); setLoading(true); setError(''); setSensorResult(null)
-    try { const { data } = await axios.post(`${API}/sensors`, sensorForm); setSensorResult(data) }
+    e.preventDefault(); setLoading(true); setError(''); setSensorResult(null); setSuitability(null); setShowAnyway(false)
+    try {
+      const [sensorRes, suitRes] = await Promise.all([
+        axios.post(`${API}/sensors`, sensorForm),
+        axios.post(`${API}/sensors/suitability`, {
+          crop       : sensorForm.crop,
+          moisture   : parseFloat(sensorForm.moisture) || 0,
+          humidity   : parseFloat(sensorForm.humidity) || 0,
+          temperature: parseFloat(sensorForm.temperature) || 0,
+        })
+      ])
+      setSensorResult(sensorRes.data)
+      setSuitability(suitRes.data)
+    }
     catch(err) { setError(err.response?.data?.error || 'Flask server not responding') }
     finally { setLoading(false) }
   }
@@ -547,56 +561,112 @@ export default function App() {
                 </div>
               </div>
               <button type="submit" className="btn-primary">
-                <span className="btn-icon">◉</span> Analyse Sensor Data
+                <span className="btn-icon">◉</span> Check Crop Suitability
               </button>
             </form>
 
             {sensorResult && (
               <div className="results fade-in">
-                <div className="sensor-display">
-                  <MoistureGauge
-                    value={parseFloat(sensorResult.moisture.water_amount_mm > 0
-                      ? Math.max(0, 60 - sensorResult.moisture.water_amount_mm)
-                      : sensorForm.moisture)}
-                    status={sensorResult.moisture.status}
-                  />
-                  <div className="sensor-cards">
-                    <div className={`sensor-card moist-${sensorResult.moisture.status.toLowerCase()}`}>
-                      <span className="sc-icon">◉</span>
-                      <span className="sc-label">Soil Moisture</span>
-                      <span className="sc-value">{sensorForm.moisture}%</span>
-                      <span className="sc-status">{sensorResult.moisture.status}</span>
-                      <span className="sc-action">{sensorResult.moisture.action}</span>
+
+                {/* ── Suitability Card ── */}
+                {suitability && (
+                  <div className={"suitability-card " + (suitability.suitable ? "suit-good" : "suit-bad")}>
+                    <div className="suit-header">
+                      <div>
+                        <span className="suit-icon">{suitability.suitable ? "✓" : "✗"}</span>
+                        <span className="suit-title">
+                          {suitability.suitable
+                            ? sensorForm.crop.charAt(0).toUpperCase() + sensorForm.crop.slice(1) + " — Ideal Conditions"
+                            : sensorForm.crop.charAt(0).toUpperCase() + sensorForm.crop.slice(1) + " — Not Recommended"}
+                        </span>
+                      </div>
+                      <span className="suit-pct">{suitability.suitability_pct}% match</span>
                     </div>
-                    <div className={`sensor-card hum-${sensorResult.humidity.status.toLowerCase()}`}>
-                      <span className="sc-icon">◈</span>
-                      <span className="sc-label">Humidity</span>
-                      <span className="sc-value">{sensorResult.humidity.value}%</span>
-                      <span className="sc-status">{sensorResult.humidity.status}</span>
-                      <span className="sc-action">{sensorResult.humidity.advice.split('.')[0]}</span>
+
+                    {/* Condition bars */}
+                    <div className="suit-conditions">
+                      {Object.entries(suitability.conditions).map(([key, val]) => (
+                        <div key={key} className="suit-cond-row">
+                          <span className="suit-cond-label">{key.charAt(0).toUpperCase()+key.slice(1)}</span>
+                          <span className={"suit-cond-val " + (val.status === "optimal" ? "cond-ok" : "cond-bad")}>
+                            {val.value}{key === "temperature" ? "°C" : "%"}
+                          </span>
+                          <span className="suit-cond-req">Required: {val.required}</span>
+                          <span className={"suit-cond-badge " + (val.status === "optimal" ? "badge-ok" : "badge-bad")}>
+                            {val.status === "optimal" ? "✓ OK" : val.status === "low" ? "↑ Low" : "↓ High"}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="sensor-card temp-normal">
-                      <span className="sc-icon">⬡</span>
-                      <span className="sc-label">Temperature</span>
-                      <span className="sc-value">{sensorResult.temperature.value}°C</span>
-                      <span className="sc-status">Live Reading</span>
-                      <span className="sc-action">Celsius scale</span>
-                    </div>
-                  </div>
-                </div>
-                {sensorResult.moisture.water_needed && (
-                  <div className="alert-critical">
-                    <span className="alert-icon">⚠</span>
-                    <div>
-                      <strong>Irrigation Required</strong>
-                      <p>Apply {sensorResult.moisture.water_amount_mm}mm of water — Urgency: {sensorResult.moisture.urgency}</p>
-                    </div>
+
+                    {/* Issues */}
+                    {suitability.issues.length > 0 && (
+                      <div className="suit-issues">
+                        {suitability.issues.map((issue, i) => (
+                          <div key={i} className="suit-issue">⚠ {issue}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Proceed anyway button */}
+                    {!suitability.suitable && !showAnyway && (
+                      <button className="btn-anyway" onClick={() => setShowAnyway(true)}>
+                        Proceed anyway — show water & care requirements
+                      </button>
+                    )}
                   </div>
                 )}
-                <div className="detail-card">
-                  <span className="detail-tag">Humidity Advisory</span>
-                  <p>{sensorResult.humidity.advice}</p>
-                </div>
+
+                {/* ── Sensor Readings (always show, or show if suitable/proceed anyway) ── */}
+                {(suitability?.suitable || showAnyway || !suitability) && (
+                  <>
+                    <div className="sensor-display">
+                      <MoistureGauge
+                        value={parseFloat(sensorResult.moisture.water_amount_mm > 0
+                          ? Math.max(0, 60 - sensorResult.moisture.water_amount_mm)
+                          : sensorForm.moisture)}
+                        status={sensorResult.moisture.status}
+                      />
+                      <div className="sensor-cards">
+                        <div className={`sensor-card moist-${sensorResult.moisture.status.toLowerCase()}`}>
+                          <span className="sc-icon">◉</span>
+                          <span className="sc-label">Soil Moisture</span>
+                          <span className="sc-value">{sensorForm.moisture}%</span>
+                          <span className="sc-status">{sensorResult.moisture.status}</span>
+                          <span className="sc-action">{sensorResult.moisture.action}</span>
+                        </div>
+                        <div className={`sensor-card hum-${sensorResult.humidity.status.toLowerCase()}`}>
+                          <span className="sc-icon">◈</span>
+                          <span className="sc-label">Humidity</span>
+                          <span className="sc-value">{sensorResult.humidity.value}%</span>
+                          <span className="sc-status">{sensorResult.humidity.status}</span>
+                          <span className="sc-action">{sensorResult.humidity.advice.split('.')[0]}</span>
+                        </div>
+                        <div className="sensor-card temp-normal">
+                          <span className="sc-icon">⬡</span>
+                          <span className="sc-label">Temperature</span>
+                          <span className="sc-value">{sensorResult.temperature.value}°C</span>
+                          <span className="sc-status">Live Reading</span>
+                          <span className="sc-action">Celsius scale</span>
+                        </div>
+                      </div>
+                    </div>
+                    {sensorResult.moisture.water_needed && (
+                      <div className="alert-critical">
+                        <span className="alert-icon">⚠</span>
+                        <div>
+                          <strong>Irrigation Required</strong>
+                          <p>Apply {sensorResult.moisture.water_amount_mm}mm of water — Urgency: {sensorResult.moisture.urgency}</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="detail-card">
+                      <span className="detail-tag">Humidity Advisory</span>
+                      <p>{sensorResult.humidity.advice}</p>
+                    </div>
+                  </>
+                )}
+
                 <div className="timestamp">Last updated: {sensorResult.timestamp}</div>
               </div>
             )}

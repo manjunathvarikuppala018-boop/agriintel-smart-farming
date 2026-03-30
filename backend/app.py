@@ -103,6 +103,17 @@ CROP_MOISTURE = {
 }
 
 
+
+CROP_REQUIREMENTS = {
+    'rice'      : {'temp_min': 20, 'temp_max': 35, 'humidity_min': 60, 'humidity_max': 85, 'moisture_min': 60, 'moisture_max': 80},
+    'wheat'     : {'temp_min': 10, 'temp_max': 25, 'humidity_min': 40, 'humidity_max': 70, 'moisture_min': 35, 'moisture_max': 55},
+    'maize'     : {'temp_min': 18, 'temp_max': 32, 'humidity_min': 45, 'humidity_max': 75, 'moisture_min': 40, 'moisture_max': 65},
+    'cotton'    : {'temp_min': 20, 'temp_max': 38, 'humidity_min': 30, 'humidity_max': 60, 'moisture_min': 30, 'moisture_max': 50},
+    'tomato'    : {'temp_min': 15, 'temp_max': 30, 'humidity_min': 50, 'humidity_max': 75, 'moisture_min': 45, 'moisture_max': 70},
+    'potato'    : {'temp_min': 10, 'temp_max': 25, 'humidity_min': 50, 'humidity_max': 80, 'moisture_min': 50, 'moisture_max': 75},
+    'sugarcane' : {'temp_min': 20, 'temp_max': 38, 'humidity_min': 55, 'humidity_max': 85, 'moisture_min': 55, 'moisture_max': 80},
+}
+
 def irrigation_advice(rainfall, temperature, humidity):
     if rainfall > 200:
         return {
@@ -376,6 +387,8 @@ def sensor_reading():
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S')
     })
 
+
+
 latest_sensor_data = {}
 
 @app.route('/sensors/update', methods=['POST'])
@@ -420,6 +433,79 @@ def sensor_live():
     if not latest_sensor_data:
         return jsonify({'status': 'no_data'})
     return jsonify(latest_sensor_data)
+
+
+@app.route('/sensors/suitability', methods=['POST'])
+def crop_suitability():
+    data        = request.get_json()
+    crop        = data.get('crop', '').lower().strip()
+    moisture    = float(data.get('moisture', 0))
+    humidity    = float(data.get('humidity', 0))
+    temperature = float(data.get('temperature', 0))
+
+    if crop not in CROP_REQUIREMENTS:
+        return jsonify({'error': f'Crop {crop} not found'}), 404
+
+    req     = CROP_REQUIREMENTS[crop]
+    issues  = []
+    score   = 0
+    total   = 3
+
+    # Temperature check
+    if req['temp_min'] <= temperature <= req['temp_max']:
+        score += 1
+        temp_status = 'optimal'
+    elif temperature < req['temp_min']:
+        issues.append(f'Temperature too low ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.')
+        temp_status = 'low'
+    else:
+        issues.append(f'Temperature too high ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.')
+        temp_status = 'high'
+
+    # Humidity check
+    if req['humidity_min'] <= humidity <= req['humidity_max']:
+        score += 1
+        hum_status = 'optimal'
+    elif humidity < req['humidity_min']:
+        issues.append(f'Humidity too low ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.')
+        hum_status = 'low'
+    else:
+        issues.append(f'Humidity too high ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.')
+        hum_status = 'high'
+
+    # Moisture check
+    if req['moisture_min'] <= moisture <= req['moisture_max']:
+        score += 1
+        moist_status = 'optimal'
+    elif moisture < req['moisture_min']:
+        issues.append(f'Soil moisture too low ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.')
+        moist_status = 'low'
+    else:
+        issues.append(f'Soil moisture too high ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.')
+        moist_status = 'high'
+
+    suitable   = score == total
+    suitability_pct = round((score / total) * 100)
+
+    # Water requirement if proceeding anyway
+    moisture_rec = water_level_recommendation(moisture, crop)
+
+    return jsonify({
+        'crop'            : crop,
+        'suitable'        : suitable,
+        'suitability_pct' : suitability_pct,
+        'score'           : score,
+        'total'           : total,
+        'issues'          : issues,
+        'conditions'      : {
+            'temperature' : {'value': temperature, 'status': temp_status,  'required': f"{req['temp_min']}–{req['temp_max']}°C"},
+            'humidity'    : {'value': humidity,    'status': hum_status,   'required': f"{req['humidity_min']}–{req['humidity_max']}%"},
+            'moisture'    : {'value': moisture,    'status': moist_status, 'required': f"{req['moisture_min']}–{req['moisture_max']}%"},
+        },
+        'water_requirement': moisture_rec,
+        'recommendation'  : 'Conditions are ideal for growing ' + crop + '.' if suitable else 'Conditions are not fully suitable. Adjust before planting.',
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
