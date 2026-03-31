@@ -878,7 +878,7 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                    {sensorResult.moisture.water_needed && (
+                    {sensorResult.moisture.water_needed && suitability?.conditions?.moisture?.status !== 'optimal' && (
                       <div className="alert-critical">
                         <span className="alert-icon">⚠</span>
                         <div>

@@ -17,9 +17,9 @@ MODEL_DIR = os.path.join(BASE_DIR, 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 MODEL_FILES = {
-    'random_forest.pkl'         : '1_QybfnhJnY6y1S88DdEGerjrBkknpUKP',
-    'scaler.pkl'                : '1Nh9oIPOuugk_zIpwDVn8og8XSVKOHLPV',
-    'label_encoder.pkl'         : '1La28bd6DxSQ-uE1mT6wG4NaTashB7MEV',
+    'random_forest.pkl'         : '1y_Dc4akcc_E7opi0Y5bL6_QKTvRv4ELt',
+    'scaler.pkl'                : '1j4MhPUAlO9abpp59ewFvkPwohyj5v6Um',
+    'label_encoder.pkl'         : '1iqK6fxDZlvieNMPQMRaVsApMweJ6VVFt',
     'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
     'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
     'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
@@ -92,14 +92,14 @@ else:
 # ─────────────────────────────────────────────────────────────────────────────
 
 CROP_MOISTURE = {
-    'rice'      : {'min': 60, 'max': 80, 'optimal': 70},
+    'rice'      : {'min': 60, 'max': 80, 'optimal': 72},
     'wheat'     : {'min': 35, 'max': 55, 'optimal': 45},
-    'maize'     : {'min': 40, 'max': 65, 'optimal': 55},
+    'maize'     : {'min': 40, 'max': 65, 'optimal': 52},
     'cotton'    : {'min': 30, 'max': 50, 'optimal': 40},
-    'tomato'    : {'min': 45, 'max': 70, 'optimal': 60},
-    'potato'    : {'min': 50, 'max': 75, 'optimal': 65},
-    'sugarcane' : {'min': 55, 'max': 80, 'optimal': 70},
-    'default'   : {'min': 40, 'max': 65, 'optimal': 55}
+    'tomato'    : {'min': 45, 'max': 70, 'optimal': 58},
+    'potato'    : {'min': 50, 'max': 75, 'optimal': 62},
+    'sugarcane' : {'min': 55, 'max': 80, 'optimal': 68},
+    'default'   : {'min': 40, 'max': 65, 'optimal': 52}
 }
 
 
