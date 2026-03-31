@@ -92,7 +92,7 @@ else:
 # ─────────────────────────────────────────────────────────────────────────────
 
 CROP_MOISTURE = {
-    'rice'      : {'min': 60, 'max': 80, 'optimal': 72},
+    'rice'      : {'min': 60, 'max': 100, 'optimal': 72},
     'wheat'     : {'min': 35, 'max': 55, 'optimal': 45},
     'maize'     : {'min': 40, 'max': 65, 'optimal': 52},
     'cotton'    : {'min': 30, 'max': 50, 'optimal': 40},
@@ -105,7 +105,7 @@ CROP_MOISTURE = {
 
 
 CROP_REQUIREMENTS = {
-    'rice'      : {'temp_min': 20, 'temp_max': 35, 'humidity_min': 60, 'humidity_max': 85, 'moisture_min': 60, 'moisture_max': 80},
+    'rice'      : {'temp_min': 20, 'temp_max': 35, 'humidity_min': 60, 'humidity_max': 85, 'moisture_min': 60, 'moisture_max': 100},
     'wheat'     : {'temp_min': 10, 'temp_max': 25, 'humidity_min': 40, 'humidity_max': 70, 'moisture_min': 35, 'moisture_max': 55},
     'maize'     : {'temp_min': 18, 'temp_max': 32, 'humidity_min': 45, 'humidity_max': 75, 'moisture_min': 40, 'moisture_max': 65},
     'cotton'    : {'temp_min': 20, 'temp_max': 38, 'humidity_min': 30, 'humidity_max': 60, 'moisture_min': 30, 'moisture_max': 50},
