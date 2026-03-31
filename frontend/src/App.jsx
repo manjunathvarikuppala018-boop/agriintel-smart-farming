@@ -116,6 +116,10 @@ export default function App() {
   const [sensorForm, setSensorForm]       = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
   const [sensorResult, setSensorResult]   = useState(null)
   const [suitability, setSuitability]     = useState(null)
+  const [sensorMode, setSensorMode]       = useState('auto')
+  const [soilForm, setSoilForm]           = useState({ N:'', P:'', K:'', ph:'', rainfall:'' })
+  const [cropFromSensor, setCropFromSensor] = useState(null)
+  const [showSoilForm, setShowSoilForm]   = useState(false)
   const [showAnyway, setShowAnyway]       = useState(false)
 
   // ── Live IoT polling ──────────────────────────────────────────────────────
@@ -190,6 +194,24 @@ export default function App() {
       ])
       setSensorResult(sensorRes.data)
       setSuitability(suitRes.data)
+    }
+    catch(err) { setError(err.response?.data?.error || 'Flask server not responding') }
+    finally { setLoading(false) }
+  }
+
+  const handleCropFromSensor = async e => {
+    e.preventDefault(); setLoading(true); setError(''); setCropFromSensor(null)
+    try {
+      const { data } = await axios.post(`${API}/recommend`, {
+        N          : parseFloat(soilForm.N),
+        P          : parseFloat(soilForm.P),
+        K          : parseFloat(soilForm.K),
+        ph         : parseFloat(soilForm.ph),
+        rainfall   : parseFloat(soilForm.rainfall),
+        temperature: parseFloat(sensorForm.temperature) || 25,
+        humidity   : parseFloat(sensorForm.humidity) || 50,
+      })
+      setCropFromSensor(data)
     }
     catch(err) { setError(err.response?.data?.error || 'Flask server not responding') }
     finally { setLoading(false) }
@@ -538,32 +560,96 @@ export default function App() {
               <span className="section-tag">MODULE 04</span>
               <h2>IoT Sensor Dashboard</h2>
             </div>
-            <form onSubmit={handleSensor} className="form">
-              <div className="param-group">
-                <div className="param-label"><span className="param-dot"/>Live Sensor Input</div>
-                <div className="grid-2">
-                  {[['moisture','Soil Moisture','%'],['humidity','Humidity','%'],['temperature','Temperature','°C']].map(([k,l,u]) => (
-                    <div className="field" key={k}>
-                      <label>{l} <span className="unit">{u}</span></label>
-                      <input type="number" step="0.1" placeholder="0"
-                        value={sensorForm[k]}
-                        onChange={e => setSensorForm({...sensorForm,[k]:e.target.value})} required/>
-                    </div>
-                  ))}
+
+            {/* ── Mode Toggle ── */}
+            <div className="method-toggle" style={{marginBottom:'1.5rem'}}>
+              <button type="button"
+                className={`toggle-btn ${sensorMode === 'auto' ? 'active' : ''}`}
+                onClick={() => { setSensorMode('auto'); setSensorResult(null); setSuitability(null); setShowAnyway(false) }}>
+                ◉ Auto — IoT Device
+              </button>
+              <button type="button"
+                className={`toggle-btn ${sensorMode === 'manual' ? 'active' : ''}`}
+                onClick={() => { setSensorMode('manual'); setSensorResult(null); setSuitability(null); setShowAnyway(false) }}>
+                ◈ Manual Input
+              </button>
+            </div>
+
+            {/* ══ AUTO MODE ══ */}
+            {sensorMode === 'auto' && (
+              <div className="sensor-mode-panel">
+                <div className="sensor-mode-info">
+                  <span className="live-dot"/>
+                  <span className="live-label">Live readings from Arduino — auto-updating every 3 seconds</span>
+                </div>
+                <div className="auto-readings-grid">
+                  <div className="auto-reading-card">
+                    <span className="arc-icon">◉</span>
+                    <span className="arc-label">Soil Moisture</span>
+                    <span className="arc-value">{sensorForm.moisture || '--'}<span className="arc-unit">%</span></span>
+                  </div>
+                  <div className="auto-reading-card">
+                    <span className="arc-icon">◈</span>
+                    <span className="arc-label">Humidity</span>
+                    <span className="arc-value">{sensorForm.humidity || '--'}<span className="arc-unit">%</span></span>
+                  </div>
+                  <div className="auto-reading-card">
+                    <span className="arc-icon">⬡</span>
+                    <span className="arc-label">Temperature</span>
+                    <span className="arc-value">{sensorForm.temperature || '--'}<span className="arc-unit">°C</span></span>
+                  </div>
+                </div>
+                <form onSubmit={handleSensor} className="form" style={{marginTop:'1rem'}}>
                   <div className="field">
-                    <label>Crop Type</label>
+                    <label>Crop Type to Evaluate</label>
                     <select value={sensorForm.crop} onChange={e => { setUserPickedCrop(true); setSensorForm({...sensorForm,crop:e.target.value}) }}>
                       {['rice','wheat','maize','cotton','tomato','potato','sugarcane'].map(c => (
                         <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
                       ))}
                     </select>
                   </div>
-                </div>
+                  <button type="submit" className="btn-primary" disabled={!sensorForm.moisture}>
+                    <span className="btn-icon">◉</span> Analyse Live Readings
+                  </button>
+                </form>
               </div>
-              <button type="submit" className="btn-primary">
-                <span className="btn-icon">◉</span> Check Crop Suitability
-              </button>
-            </form>
+            )}
+
+            {/* ══ MANUAL MODE ══ */}
+            {sensorMode === 'manual' && (
+              <div className="sensor-mode-panel">
+                <div className="sensor-mode-info manual-info">
+                  <span className="manual-dot"/>
+                  <span className="live-label">Enter sensor values manually</span>
+                </div>
+                <form onSubmit={handleSensor} className="form">
+                  <div className="param-group">
+                    <div className="param-label"><span className="param-dot"/>Sensor Readings</div>
+                    <div className="grid-2">
+                      {[['moisture','Soil Moisture','%'],['humidity','Humidity','%'],['temperature','Temperature','°C']].map(([k,l,u]) => (
+                        <div className="field" key={k}>
+                          <label>{l} <span className="unit">{u}</span></label>
+                          <input type="number" step="0.1" placeholder="0"
+                            value={sensorForm[k]}
+                            onChange={e => setSensorForm({...sensorForm,[k]:e.target.value})} required/>
+                        </div>
+                      ))}
+                      <div className="field">
+                        <label>Crop Type</label>
+                        <select value={sensorForm.crop} onChange={e => { setUserPickedCrop(true); setSensorForm({...sensorForm,crop:e.target.value}) }}>
+                          {['rice','wheat','maize','cotton','tomato','potato','sugarcane'].map(c => (
+                            <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-primary">
+                    <span className="btn-icon">◈</span> Analyse Sensor Data
+                  </button>
+                </form>
+              </div>
+            )}
 
             {sensorResult && (
               <div className="results fade-in">
@@ -668,6 +754,84 @@ export default function App() {
                 )}
 
                 <div className="timestamp">Last updated: {sensorResult.timestamp}</div>
+
+                {/* ── Crop Recommendation from Sensor ── */}
+                <div className="sensor-crop-rec">
+                  <div className="scr-header" onClick={() => setShowSoilForm(v => !v)}>
+                    <span className="scr-icon">⬡</span>
+                    <span className="scr-title">Recommend Crop Based on Live Readings</span>
+                    <span className="scr-toggle">{showSoilForm ? "▲" : "▼"}</span>
+                  </div>
+                  {showSoilForm && (
+                    <form onSubmit={handleCropFromSensor} className="scr-form">
+                      <p className="scr-note">Live readings (temp & humidity) are auto-filled. Enter soil nutrients to get a crop recommendation.</p>
+                      <div className="grid-3">
+                        {[['N','Nitrogen','kg/ha'],['P','Phosphorus','kg/ha'],['K','Potassium','kg/ha']].map(([k,l,u]) => (
+                          <div className="field" key={k}>
+                            <label>{l} <span className="unit">{u}</span></label>
+                            <input type="number" step="0.1" placeholder="0"
+                              value={soilForm[k]}
+                              onChange={e => setSoilForm({...soilForm,[k]:e.target.value})} required/>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="grid-2">
+                        <div className="field">
+                          <label>Soil pH <span className="unit">3.5–9.9</span></label>
+                          <input type="number" step="0.1" placeholder="0" value={soilForm.ph}
+                            onChange={e => setSoilForm({...soilForm, ph:e.target.value})} required/>
+                        </div>
+                        <div className="field">
+                          <label>Annual Rainfall <span className="unit">mm</span></label>
+                          <input type="number" step="0.1" placeholder="0" value={soilForm.rainfall}
+                            onChange={e => setSoilForm({...soilForm, rainfall:e.target.value})} required/>
+                        </div>
+                      </div>
+                      <div className="scr-live-vals">
+                        <span>⬡ Using live: Temp {sensorForm.temperature || "--"}°C</span>
+                        <span>⬡ Humidity {sensorForm.humidity || "--"}%</span>
+                      </div>
+                      <button type="submit" className="btn-primary">
+                        <span className="btn-icon">⬡</span> Get Crop Recommendation
+                      </button>
+                    </form>
+                  )}
+
+                  {cropFromSensor && (
+                    <div className="scr-result fade-in">
+                      <div className="scr-rec-hero">
+                        <div>
+                          <span className="scr-rec-label">Best Crop for Current Conditions</span>
+                          <span className="scr-rec-crop">{cropFromSensor.crop.toUpperCase()}</span>
+                          <div className="confidence-bar-wrap">
+                            <div className="confidence-bar" style={{width:`${cropFromSensor.confidence}%`}}/>
+                          </div>
+                          <span className="hero-conf">{cropFromSensor.confidence}% confidence</span>
+                        </div>
+                      </div>
+                      <div className="scr-alts">
+                        <span className="detail-tag">Other suitable crops</span>
+                        <div className="scr-alt-list">
+                          {cropFromSensor.alternatives.map((a,i) => (
+                            <div key={i} className="scr-alt-item">
+                              <span>{a.crop}</span>
+                              <span className="scr-alt-conf">{a.confidence}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="detail-card">
+                        <span className="detail-tag">Irrigation Advice</span>
+                        <p>{cropFromSensor.irrigation.method}</p>
+                      </div>
+                      <div className="detail-card">
+                        <span className="detail-tag">Fertilizer Advice</span>
+                        <p>{cropFromSensor.fertilizer[0]}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
           </div>
