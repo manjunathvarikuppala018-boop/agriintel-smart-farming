@@ -114,6 +114,8 @@ export default function App() {
   const [imageFile, setImageFile]         = useState(null)
   const [imagePreview, setImagePreview]   = useState(null)
   const [sensorForm, setSensorForm]       = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
+  const [autoForm, setAutoForm]           = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
+  const [manualForm, setManualForm]       = useState({ moisture:'', humidity:'', temperature:'', crop:'rice' })
   const [sensorResult, setSensorResult]   = useState(null)
   const [suitability, setSuitability]     = useState(null)
   const [sensorMode, setSensorMode]       = useState('auto')
@@ -131,16 +133,25 @@ export default function App() {
       try {
         const { data } = await axios.get(`${API}/sensors/live`)
         if (data.status !== 'no_data' && data.moisture) {
-          setSensorResult(data)
+          if (sensorMode === 'auto') setSensorResult(data)
           if (data.raw) {
-            setSensorForm(prev => ({
+            setAutoForm(prev => ({
               ...prev,
               moisture   : String(data.raw.moisture),
               humidity   : String(data.raw.humidity),
               temperature: String(data.raw.temperature),
-              // only update crop if user has not manually picked one
               crop       : userPickedCrop ? prev.crop : (data.raw.crop || prev.crop)
             }))
+            // also sync sensorForm only in auto mode
+            if (sensorMode === 'auto') {
+              setSensorForm(prev => ({
+                ...prev,
+                moisture   : String(data.raw.moisture),
+                humidity   : String(data.raw.humidity),
+                temperature: String(data.raw.temperature),
+                crop       : userPickedCrop ? prev.crop : (data.raw.crop || prev.crop)
+              }))
+            }
           }
         }
       } catch(e) {}
@@ -182,14 +193,15 @@ export default function App() {
 
   const handleSensor = async e => {
     e.preventDefault(); setLoading(true); setError(''); setSensorResult(null); setSuitability(null); setShowAnyway(false)
+    const activeForm = sensorMode === 'auto' ? autoForm : manualForm
     try {
       const [sensorRes, suitRes] = await Promise.all([
-        axios.post(`${API}/sensors`, sensorForm),
+        axios.post(`${API}/sensors`, activeForm),
         axios.post(`${API}/sensors/suitability`, {
-          crop       : sensorForm.crop,
-          moisture   : parseFloat(sensorForm.moisture) || 0,
-          humidity   : parseFloat(sensorForm.humidity) || 0,
-          temperature: parseFloat(sensorForm.temperature) || 0,
+          crop       : activeForm.crop,
+          moisture   : parseFloat(activeForm.moisture) || 0,
+          humidity   : parseFloat(activeForm.humidity) || 0,
+          temperature: parseFloat(activeForm.temperature) || 0,
         })
       ])
       setSensorResult(sensorRes.data)
@@ -202,14 +214,15 @@ export default function App() {
   const handleCropFromSensor = async e => {
     e.preventDefault(); setLoading(true); setError(''); setCropFromSensor(null)
     try {
+      const activeForm = sensorMode === 'auto' ? autoForm : manualForm
       const { data } = await axios.post(`${API}/recommend`, {
         N          : parseFloat(soilForm.N),
         P          : parseFloat(soilForm.P),
         K          : parseFloat(soilForm.K),
         ph         : parseFloat(soilForm.ph),
         rainfall   : parseFloat(soilForm.rainfall),
-        temperature: parseFloat(sensorForm.temperature) || 25,
-        humidity   : parseFloat(sensorForm.humidity) || 50,
+        temperature: parseFloat(activeForm.temperature) || 25,
+        humidity   : parseFloat(activeForm.humidity) || 50,
       })
       setCropFromSensor(data)
     }
@@ -586,29 +599,29 @@ export default function App() {
                   <div className="auto-reading-card">
                     <span className="arc-icon">◉</span>
                     <span className="arc-label">Soil Moisture</span>
-                    <span className="arc-value">{sensorForm.moisture || '--'}<span className="arc-unit">%</span></span>
+                    <span className="arc-value">{autoForm.moisture || '--'}<span className="arc-unit">{autoForm.moisture ? '%' : ''}</span></span>
                   </div>
                   <div className="auto-reading-card">
                     <span className="arc-icon">◈</span>
                     <span className="arc-label">Humidity</span>
-                    <span className="arc-value">{sensorForm.humidity || '--'}<span className="arc-unit">%</span></span>
+                    <span className="arc-value">{autoForm.humidity || '--'}<span className="arc-unit">{autoForm.humidity ? '%' : ''}</span></span>
                   </div>
                   <div className="auto-reading-card">
                     <span className="arc-icon">⬡</span>
                     <span className="arc-label">Temperature</span>
-                    <span className="arc-value">{sensorForm.temperature || '--'}<span className="arc-unit">°C</span></span>
+                    <span className="arc-value">{autoForm.temperature || '--'}<span className="arc-unit">{autoForm.temperature ? '°C' : ''}</span></span>
                   </div>
                 </div>
                 <form onSubmit={handleSensor} className="form" style={{marginTop:'1rem'}}>
                   <div className="field">
                     <label>Crop Type to Evaluate</label>
-                    <select value={sensorForm.crop} onChange={e => { setUserPickedCrop(true); setSensorForm({...sensorForm,crop:e.target.value}) }}>
+                    <select value={autoForm.crop} onChange={e => { setUserPickedCrop(true); setAutoForm({...autoForm,crop:e.target.value}); setSensorForm({...sensorForm,crop:e.target.value}) }}>
                       {['rice','wheat','maize','cotton','tomato','potato','sugarcane'].map(c => (
                         <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
                       ))}
                     </select>
                   </div>
-                  <button type="submit" className="btn-primary" disabled={!sensorForm.moisture}>
+                  <button type="submit" className="btn-primary" disabled={!autoForm.moisture}>
                     <span className="btn-icon">◉</span> Analyse Live Readings
                   </button>
                 </form>
@@ -622,7 +635,7 @@ export default function App() {
                   <span className="manual-dot"/>
                   <span className="live-label">Enter sensor values manually</span>
                 </div>
-                <form onSubmit={handleSensor} className="form">
+                <form onSubmit={e => { setSensorForm({...manualForm}); handleSensor(e) }} className="form">
                   <div className="param-group">
                     <div className="param-label"><span className="param-dot"/>Sensor Readings</div>
                     <div className="grid-2">
@@ -630,13 +643,13 @@ export default function App() {
                         <div className="field" key={k}>
                           <label>{l} <span className="unit">{u}</span></label>
                           <input type="number" step="0.1" placeholder="0"
-                            value={sensorForm[k]}
-                            onChange={e => setSensorForm({...sensorForm,[k]:e.target.value})} required/>
+                            value={manualForm[k]}
+                            onChange={e => setManualForm({...manualForm,[k]:e.target.value})} required/>
                         </div>
                       ))}
                       <div className="field">
                         <label>Crop Type</label>
-                        <select value={sensorForm.crop} onChange={e => { setUserPickedCrop(true); setSensorForm({...sensorForm,crop:e.target.value}) }}>
+                        <select value={manualForm.crop} onChange={e => setManualForm({...manualForm,crop:e.target.value})}>
                           {['rice','wheat','maize','cotton','tomato','potato','sugarcane'].map(c => (
                             <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
                           ))}
@@ -717,7 +730,7 @@ export default function App() {
                         <div className={`sensor-card moist-${sensorResult.moisture.status.toLowerCase()}`}>
                           <span className="sc-icon">◉</span>
                           <span className="sc-label">Soil Moisture</span>
-                          <span className="sc-value">{sensorForm.moisture}%</span>
+                          <span className="sc-value">{(sensorMode === 'auto' ? autoForm : manualForm).moisture}%</span>
                           <span className="sc-status">{sensorResult.moisture.status}</span>
                           <span className="sc-action">{sensorResult.moisture.action}</span>
                         </div>
@@ -788,8 +801,8 @@ export default function App() {
                         </div>
                       </div>
                       <div className="scr-live-vals">
-                        <span>⬡ Using live: Temp {sensorForm.temperature || "--"}°C</span>
-                        <span>⬡ Humidity {sensorForm.humidity || "--"}%</span>
+                        <span>⬡ Using {sensorMode === 'auto' ? 'live' : 'manual'}: Temp {(sensorMode === 'auto' ? autoForm : manualForm).temperature || "--"}°C</span>
+                        <span>⬡ Humidity {(sensorMode === 'auto' ? autoForm : manualForm).humidity || "--"}%</span>
                       </div>
                       <button type="submit" className="btn-primary">
                         <span className="btn-icon">⬡</span> Get Crop Recommendation
