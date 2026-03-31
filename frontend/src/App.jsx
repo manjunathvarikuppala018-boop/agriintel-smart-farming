@@ -56,29 +56,76 @@ function ParticleCanvas() {
 }
 
 function MoistureGauge({ value = 0, max = 100, status = 'Optimal' }) {
-  const angle   = -135 + (value / max) * 270
-  const color   = status === 'Critical' ? '#ef4444' : status === 'Low' ? '#f97316' : status === 'Excess' ? '#3b82f6' : '#4ade80'
+  const clampedVal = Math.min(Math.max(value, 0), max)
+  const angle      = -135 + (clampedVal / max) * 270
+  const color      = status === 'Critical' ? '#ef4444'
+                   : status === 'Low'      ? '#f97316'
+                   : status === 'Excess'   ? '#3b82f6'
+                   : '#4ade80'
+
+  // Compute filled arc path
+  const toRad = deg => (deg * Math.PI) / 180
+  const cx = 100, cy = 130, r = 75
+  const startAngle = -225  // left end of arc
+  const endAngle   = startAngle + (clampedVal / max) * 270
+  const x1 = cx + r * Math.cos(toRad(startAngle))
+  const y1 = cy + r * Math.sin(toRad(startAngle))
+  const x2 = cx + r * Math.cos(toRad(endAngle))
+  const y2 = cy + r * Math.sin(toRad(endAngle))
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+
   return (
     <div className="gauge-wrap">
-      <svg viewBox="0 0 200 160" className="gauge-svg">
+      <svg viewBox="0 0 200 170" className="gauge-svg">
         <defs>
           <linearGradient id="gaugeTrack" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stopColor="#ef4444" stopOpacity="0.4"/>
-            <stop offset="40%"  stopColor="#4ade80" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4"/>
+            <stop offset="0%"   stopColor="#ef4444" stopOpacity="0.3"/>
+            <stop offset="45%"  stopColor="#4ade80" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.3"/>
+          </linearGradient>
+          <linearGradient id="gaugeFill" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stopColor="#ef4444"/>
+            <stop offset="45%"  stopColor="#4ade80"/>
+            <stop offset="100%" stopColor="#3b82f6"/>
           </linearGradient>
         </defs>
-        <path d="M 20 140 A 80 80 0 1 1 180 140" fill="none" stroke="#1a2a1a" strokeWidth="16" strokeLinecap="round"/>
-        <path d="M 20 140 A 80 80 0 1 1 180 140" fill="none" stroke="url(#gaugeTrack)" strokeWidth="16" strokeLinecap="round"/>
-        <g transform={`rotate(${angle}, 100, 140)`}>
-          <line x1="100" y1="140" x2="100" y2="72" stroke={color} strokeWidth="3" strokeLinecap="round"/>
-          <circle cx="100" cy="140" r="7" fill={color}/>
-          <circle cx="100" cy="140" r="3" fill="#0a1a0a"/>
+
+        {/* Track arc */}
+        <path
+          d={`M ${cx + r * Math.cos(toRad(-225))} ${cy + r * Math.sin(toRad(-225))} A ${r} ${r} 0 1 1 ${cx + r * Math.cos(toRad(45))} ${cy + r * Math.sin(toRad(45))}`}
+          fill="none" stroke="url(#gaugeTrack)" strokeWidth="14" strokeLinecap="round"
+        />
+
+        {/* Filled arc */}
+        {clampedVal > 0 && (
+          <path
+            d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
+            fill="none" stroke={color} strokeWidth="14" strokeLinecap="round"
+            style={{filter:`drop-shadow(0 0 6px ${color}88)`}}
+          />
+        )}
+
+        {/* Needle */}
+        <g transform={`rotate(${angle}, ${cx}, ${cy})`}>
+          <line x1={cx} y1={cy} x2={cx} y2={cy - 58}
+            stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
+          <circle cx={cx} cy={cy} r="6" fill={color}/>
+          <circle cx={cx} cy={cy} r="2.5" fill="#0a1a0a"/>
         </g>
-        <text x="100" y="125" textAnchor="middle" fill={color} fontSize="22" fontWeight="700" fontFamily="'Courier New', monospace">{value}%</text>
-        <text x="100" y="145" textAnchor="middle" fill="#4ade80" fontSize="10" opacity="0.7">{status}</text>
-        <text x="22"  y="158" fill="#4ade80" fontSize="9" opacity="0.5">DRY</text>
-        <text x="152" y="158" fill="#3b82f6" fontSize="9" opacity="0.5">WET</text>
+
+        {/* Value text */}
+        <text x={cx} y={cy - 10} textAnchor="middle"
+          fill={color} fontSize="24" fontWeight="800"
+          fontFamily="'Courier New', monospace">{clampedVal}%</text>
+
+        {/* Status text */}
+        <text x={cx} y={cy + 10} textAnchor="middle"
+          fill={color} fontSize="10" opacity="0.8" letterSpacing="1">{status.toUpperCase()}</text>
+
+        {/* Labels */}
+        <text x="18" y="155" fill="#ef4444" fontSize="9" opacity="0.6">DRY</text>
+        <text x="160" y="155" fill="#3b82f6" fontSize="9" opacity="0.6">WET</text>
+        <text x={cx} y="158" textAnchor="middle" fill="#4ade80" fontSize="8" opacity="0.4">SOIL MOISTURE</text>
       </svg>
     </div>
   )
@@ -590,7 +637,7 @@ export default function App() {
               </div>
 
               {diseaseForm.method === 'symptoms' ? (
-                <div className="field">
+                <div className="field" style={{marginTop:'1.2rem'}}>
                   <label>Observed Symptoms <span className="unit">select all that apply</span></label>
                   <div className="symptom-grid">
                     {SYMPTOMS[diseaseForm.crop].map(s => (
@@ -804,9 +851,7 @@ export default function App() {
                   <>
                     <div className="sensor-display">
                       <MoistureGauge
-                        value={parseFloat(sensorResult.moisture.water_amount_mm > 0
-                          ? Math.max(0, 60 - sensorResult.moisture.water_amount_mm)
-                          : sensorForm.moisture)}
+                        value={parseFloat(sensorMode === 'auto' ? autoForm.moisture : manualForm.moisture) || 0}
                         status={sensorResult.moisture.status}
                       />
                       <div className="sensor-cards">
