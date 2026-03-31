@@ -17,9 +17,9 @@ MODEL_DIR = os.path.join(BASE_DIR, 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 MODEL_FILES = {
-    'random_forest.pkl'         : '1y_Dc4akcc_E7opi0Y5bL6_QKTvRv4ELt',
-    'scaler.pkl'                : '1j4MhPUAlO9abpp59ewFvkPwohyj5v6Um',
-    'label_encoder.pkl'         : '1iqK6fxDZlvieNMPQMRaVsApMweJ6VVFt',
+    'random_forest.pkl'         : '1_QybfnhJnY6y1S88DdEGerjrBkknpUKP',
+    'scaler.pkl'                : '1Nh9oIPOuugk_zIpwDVn8og8XSVKOHLPV',
+    'label_encoder.pkl'         : '1La28bd6DxSQ-uE1mT6wG4NaTashB7MEV',
     'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
     'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
     'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
@@ -228,7 +228,7 @@ def recommend():
         crop_name   = le.inverse_transform(prediction)[0]
         confidence  = round(float(probability.max()) * 100, 2)
 
-        top3_idx     = np.argsort(probability[0])[::-1][:3]
+        top3_idx     = np.argsort(probability[0])[::-1][:5]
         alternatives = [
             {
                 'crop'       : le.inverse_transform([i])[0],

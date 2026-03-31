@@ -107,6 +107,7 @@ export default function App() {
   const [error, setError]     = useState('')
   const [mainForm, setMainForm] = useState({ N:'', P:'', K:'', temperature:'', humidity:'', ph:'', rainfall:'' })
   const [mainResult, setMainResult] = useState(null)
+  const [selectedCrop, setSelectedCrop] = useState(null)
   const [yieldForm, setYieldForm]   = useState({ rainfall:'', temperature:'', pesticides:'', year:'2024' })
   const [yieldResult, setYieldResult] = useState(null)
   const [diseaseForm, setDiseaseForm] = useState({ crop:'rice', symptoms:[], method:'symptoms' })
@@ -163,8 +164,8 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleMain = async e => {
-    e.preventDefault(); setLoading(true); setError(''); setMainResult(null)
-    try { const { data } = await axios.post(`${API}/recommend`, mainForm); setMainResult(data) }
+    e.preventDefault(); setLoading(true); setError(''); setMainResult(null); setSelectedCrop(null)
+    try { const { data } = await axios.post(`${API}/recommend`, mainForm); setMainResult(data); setSelectedCrop(data.alternatives[0]) }
     catch(err) { setError(err.response?.data?.error || 'Flask server not responding') }
     finally { setLoading(false) }
   }
@@ -358,67 +359,147 @@ export default function App() {
 
             {mainResult && (
               <div className="results fade-in">
-                <div className="result-hero">
-                  <div className="hero-crop">
-                    <span className="hero-label">Recommended Crop</span>
-                    <span className="hero-value">{mainResult.crop.toUpperCase()}</span>
-                    <div className="confidence-bar-wrap">
-                      <div className="confidence-bar" style={{width:`${mainResult.confidence}%`}}/>
+
+                {/* ── Top 5 Crop Cards ── */}
+                <div className="multi-rec-header">
+                  <span className="section-tag" style={{marginBottom:'0.5rem',display:'inline-block'}}>CROP RECOMMENDATIONS</span>
+                  <p className="multi-rec-sub">Select a crop to see detailed analysis</p>
+                </div>
+                <div className="multi-crop-grid">
+                  {mainResult.alternatives.map((alt, i) => (
+                    <div key={i}
+                      className={"multi-crop-card " + (selectedCrop?.crop === alt.crop ? "mcc-selected" : "")}
+                      onClick={() => setSelectedCrop(alt)}>
+                      <div className="mcc-rank">#{i+1}</div>
+                      <div className="mcc-name">{alt.crop.toUpperCase()}</div>
+                      <div className="mcc-bar-wrap">
+                        <div className="mcc-bar" style={{width:`${alt.confidence}%`,
+                          background: i===0 ? '#4ade80' : i===1 ? '#22c55e' : i===2 ? '#16a34a' : 'rgba(74,222,128,0.4)'}}/>
+                      </div>
+                      <div className="mcc-conf">{alt.confidence}%</div>
+                      {i === 0 && <div className="mcc-best-badge">Best Match</div>}
                     </div>
-                    <span className="hero-conf">{mainResult.confidence}% confidence</span>
-                  </div>
-                  <div className="hero-cards">
-                    <div className="mini-card">
-                      <span className="mini-icon">◈</span>
-                      <span className="mini-label">Irrigation</span>
-                      <span className="mini-value">{mainResult.irrigation.level}</span>
-                      <span className="mini-sub">{mainResult.irrigation.amount}</span>
-                    </div>
-                    <div className="mini-card">
-                      <span className="mini-icon">◎</span>
-                      <span className="mini-label">Fertilizer</span>
-                      <span className="mini-value">NPK</span>
-                      <span className="mini-sub">{mainResult.fertilizer[0].split('—')[0]}</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                <div className="charts-row">
-                  <div className="chart-card">
-                    <div className="chart-title">Soil & Weather Profile</div>
-                    <Radar data={radarData} options={{
-                      responsive: true,
-                      plugins: { legend: { display: false } },
-                      scales: { r: {
-                        grid: { color: 'rgba(74,222,128,0.15)' },
-                        ticks: { display: false },
-                        pointLabels: { color: '#4ade80', font: { size: 11 } }
-                      }}
-                    }}/>
-                  </div>
-                  <div className="chart-card">
-                    <div className="chart-title">Alternative Crops</div>
-                    <Bar data={altBarData} options={{
-                      responsive: true,
-                      plugins: { legend: { display: false } },
-                      scales: {
-                        x: { grid: { color: 'rgba(74,222,128,0.1)' }, ticks: { color: '#4ade80' } },
-                        y: { grid: { color: 'rgba(74,222,128,0.1)' }, ticks: { color: '#4ade80' }, max: 100 }
-                      }
-                    }}/>
-                  </div>
-                </div>
+                {/* ── Selected Crop Detail ── */}
+                {selectedCrop && (
+                  <div className="selected-crop-detail fade-in">
+                    <div className="scd-header">
+                      <span className="scd-crop">{selectedCrop.crop.toUpperCase()}</span>
+                      <span className="scd-conf">{selectedCrop.confidence}% match</span>
+                    </div>
 
-                <div className="detail-row">
-                  <div className="detail-card">
-                    <span className="detail-tag">Irrigation Method</span>
-                    <p>{mainResult.irrigation.method}</p>
+                    <div className="charts-row">
+                      <div className="chart-card">
+                        <div className="chart-title">Soil & Weather Profile</div>
+                        <Radar data={radarData} options={{
+                          responsive: true,
+                          plugins: { legend: { display: false } },
+                          scales: { r: {
+                            grid: { color: 'rgba(74,222,128,0.15)' },
+                            ticks: { display: false },
+                            pointLabels: { color: '#4ade80', font: { size: 11 } }
+                          }}
+                        }}/>
+                      </div>
+                      <div className="chart-card">
+                        <div className="chart-title">All Crop Confidence</div>
+                        <Bar data={altBarData} options={{
+                          responsive: true,
+                          plugins: { legend: { display: false } },
+                          scales: {
+                            x: { grid: { color: 'rgba(74,222,128,0.1)' }, ticks: { color: '#4ade80' } },
+                            y: { grid: { color: 'rgba(74,222,128,0.1)' }, ticks: { color: '#4ade80' }, max: 100 }
+                          }
+                        }}/>
+                      </div>
+                    </div>
+
+                    <div className="detail-row">
+                      <div className="detail-card">
+                        <span className="detail-tag">Irrigation Method</span>
+                        <p>{mainResult.irrigation.method}</p>
+                      </div>
+                      <div className="detail-card">
+                        <span className="detail-tag">Fertilizer Recommendation</span>
+                        <p>{mainResult.fertilizer[0]}</p>
+                      </div>
+                    </div>
+
+                    {/* ── NPK Improvement Suggestions ── */}
+                    <div className="npk-suggestions">
+                      <span className="detail-tag" style={{marginBottom:'0.8rem',display:'block'}}>⬡ Nutrient Improvement Suggestions</span>
+                      <div className="npk-hint-grid">
+                        {parseFloat(mainForm.N) < 40 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-n">N</span>
+                            <div>
+                              <strong>Increase Nitrogen to 40–80 kg/ha</strong>
+                              <p>Apply Urea (46-0-0) at 50 kg/ha. Boosts leafy crops like rice, wheat, maize.</p>
+                            </div>
+                          </div>
+                        )}
+                        {parseFloat(mainForm.N) >= 80 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-n">N</span>
+                            <div>
+                              <strong>High Nitrogen — ideal for rice, maize, sugarcane</strong>
+                              <p>Current N levels support high-yield cereal crops.</p>
+                            </div>
+                          </div>
+                        )}
+                        {parseFloat(mainForm.P) < 20 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-p">P</span>
+                            <div>
+                              <strong>Increase Phosphorus to 20–60 kg/ha</strong>
+                              <p>Apply DAP (18-46-0) at 30 kg/ha. Enables root crops like potato, carrot, groundnut.</p>
+                            </div>
+                          </div>
+                        )}
+                        {parseFloat(mainForm.P) >= 40 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-p">P</span>
+                            <div>
+                              <strong>Good Phosphorus — supports fruiting crops</strong>
+                              <p>Levels support tomato, cotton, chickpea, lentil cultivation.</p>
+                            </div>
+                          </div>
+                        )}
+                        {parseFloat(mainForm.K) < 20 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-k">K</span>
+                            <div>
+                              <strong>Increase Potassium to 30–100 kg/ha</strong>
+                              <p>Apply MOP (0-0-60) at 25 kg/ha. Improves disease resistance — enables banana, mango, potato.</p>
+                            </div>
+                          </div>
+                        )}
+                        {parseFloat(mainForm.K) >= 80 && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-k">K</span>
+                            <div>
+                              <strong>High Potassium — ideal for banana, papaya, coconut</strong>
+                              <p>Current K levels are excellent for tropical fruit crops.</p>
+                            </div>
+                          </div>
+                        )}
+                        {(parseFloat(mainForm.ph) < 5.5 || parseFloat(mainForm.ph) > 7.5) && (
+                          <div className="npk-hint">
+                            <span className="npk-hint-icon npk-ph">pH</span>
+                            <div>
+                              <strong>Adjust pH to 6.0–7.0 for most crops</strong>
+                              <p>{parseFloat(mainForm.ph) < 5.5
+                                ? 'Soil too acidic — apply lime (CaCO₃) to raise pH. Enables wheat, maize, soybean.'
+                                : 'Soil too alkaline — apply sulfur or gypsum to lower pH. Improves nutrient availability.'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="detail-card">
-                    <span className="detail-tag">Fertilizer Recommendation</span>
-                    <p>{mainResult.fertilizer[0]}</p>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -768,82 +849,6 @@ export default function App() {
 
                 <div className="timestamp">Last updated: {sensorResult.timestamp}</div>
 
-                {/* ── Crop Recommendation from Sensor ── */}
-                <div className="sensor-crop-rec">
-                  <div className="scr-header" onClick={() => setShowSoilForm(v => !v)}>
-                    <span className="scr-icon">⬡</span>
-                    <span className="scr-title">Recommend Crop Based on Live Readings</span>
-                    <span className="scr-toggle">{showSoilForm ? "▲" : "▼"}</span>
-                  </div>
-                  {showSoilForm && (
-                    <form onSubmit={handleCropFromSensor} className="scr-form">
-                      <p className="scr-note">Live readings (temp & humidity) are auto-filled. Enter soil nutrients to get a crop recommendation.</p>
-                      <div className="grid-3">
-                        {[['N','Nitrogen','kg/ha'],['P','Phosphorus','kg/ha'],['K','Potassium','kg/ha']].map(([k,l,u]) => (
-                          <div className="field" key={k}>
-                            <label>{l} <span className="unit">{u}</span></label>
-                            <input type="number" step="0.1" placeholder="0"
-                              value={soilForm[k]}
-                              onChange={e => setSoilForm({...soilForm,[k]:e.target.value})} required/>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid-2">
-                        <div className="field">
-                          <label>Soil pH <span className="unit">3.5–9.9</span></label>
-                          <input type="number" step="0.1" placeholder="0" value={soilForm.ph}
-                            onChange={e => setSoilForm({...soilForm, ph:e.target.value})} required/>
-                        </div>
-                        <div className="field">
-                          <label>Annual Rainfall <span className="unit">mm</span></label>
-                          <input type="number" step="0.1" placeholder="0" value={soilForm.rainfall}
-                            onChange={e => setSoilForm({...soilForm, rainfall:e.target.value})} required/>
-                        </div>
-                      </div>
-                      <div className="scr-live-vals">
-                        <span>⬡ Using {sensorMode === 'auto' ? 'live' : 'manual'}: Temp {(sensorMode === 'auto' ? autoForm : manualForm).temperature || "--"}°C</span>
-                        <span>⬡ Humidity {(sensorMode === 'auto' ? autoForm : manualForm).humidity || "--"}%</span>
-                      </div>
-                      <button type="submit" className="btn-primary">
-                        <span className="btn-icon">⬡</span> Get Crop Recommendation
-                      </button>
-                    </form>
-                  )}
-
-                  {cropFromSensor && (
-                    <div className="scr-result fade-in">
-                      <div className="scr-rec-hero">
-                        <div>
-                          <span className="scr-rec-label">Best Crop for Current Conditions</span>
-                          <span className="scr-rec-crop">{cropFromSensor.crop.toUpperCase()}</span>
-                          <div className="confidence-bar-wrap">
-                            <div className="confidence-bar" style={{width:`${cropFromSensor.confidence}%`}}/>
-                          </div>
-                          <span className="hero-conf">{cropFromSensor.confidence}% confidence</span>
-                        </div>
-                      </div>
-                      <div className="scr-alts">
-                        <span className="detail-tag">Other suitable crops</span>
-                        <div className="scr-alt-list">
-                          {cropFromSensor.alternatives.map((a,i) => (
-                            <div key={i} className="scr-alt-item">
-                              <span>{a.crop}</span>
-                              <span className="scr-alt-conf">{a.confidence}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="detail-card">
-                        <span className="detail-tag">Irrigation Advice</span>
-                        <p>{cropFromSensor.irrigation.method}</p>
-                      </div>
-                      <div className="detail-card">
-                        <span className="detail-tag">Fertilizer Advice</span>
-                        <p>{cropFromSensor.fertilizer[0]}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
               </div>
             )}
