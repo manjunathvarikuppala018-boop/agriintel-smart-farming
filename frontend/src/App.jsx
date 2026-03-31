@@ -120,6 +120,7 @@ export default function App() {
   const [sensorResult, setSensorResult]   = useState(null)
   const [suitability, setSuitability]     = useState(null)
   const [sensorMode, setSensorMode]       = useState('auto')
+  const [sensorResultMode, setSensorResultMode] = useState(null)
   const [soilForm, setSoilForm]           = useState({ N:'', P:'', K:'', ph:'', rainfall:'' })
   const [cropFromSensor, setCropFromSensor] = useState(null)
   const [showSoilForm, setShowSoilForm]   = useState(false)
@@ -207,6 +208,7 @@ export default function App() {
       ])
       setSensorResult(sensorRes.data)
       setSuitability(suitRes.data)
+      setSensorResultMode(sensorMode)
     }
     catch(err) { setError(err.response?.data?.error || 'Flask server not responding') }
     finally { setLoading(false) }
@@ -664,7 +666,7 @@ export default function App() {
               </button>
               <button type="button"
                 className={`toggle-btn ${sensorMode === 'manual' ? 'active' : ''}`}
-                onClick={() => { setSensorMode('manual'); setSensorResult(null); setSuitability(null); setShowAnyway(false) }}>
+                onClick={() => { setSensorMode('manual'); setSensorResult(null); setSuitability(null); setShowAnyway(false); setManualForm({ moisture:'', humidity:'', temperature:'', crop:'rice' }) }}>
                 ◈ Manual Input
               </button>
             </div>
@@ -745,7 +747,7 @@ export default function App() {
               </div>
             )}
 
-            {sensorResult && (
+            {sensorResult && sensorResultMode === sensorMode && (
               <div className="results fade-in">
 
                 {/* ── Suitability Card ── */}
