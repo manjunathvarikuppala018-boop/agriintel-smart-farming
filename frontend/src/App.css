@@ -1692,3 +1692,49 @@ body {
   margin: 0;
   line-height: 1.4;
 }
+/* ── Weather API Fetch ─────────────────────────────────────────────── */
+.weather-fetch-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.btn-weather {
+  padding: 10px 20px;
+  background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.4);
+  border-radius: 8px;
+  color: #4ade80;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .2s;
+  height: 42px;
+  letter-spacing: 0.05em;
+}
+
+.btn-weather:hover {
+  background: rgba(74,222,128,0.18);
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74,222,128,0.2);
+}
+
+.btn-weather:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.weather-fetched-info {
+  font-size: 11px;
+  color: #4ade80;
+  opacity: 0.8;
+  padding: 6px 10px;
+  background: rgba(74,222,128,0.06);
+  border-radius: 6px;
+  border: 1px solid rgba(74,222,128,0.2);
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}

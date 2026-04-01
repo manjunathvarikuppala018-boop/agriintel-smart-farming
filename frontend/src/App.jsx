@@ -155,6 +155,9 @@ export default function App() {
   const [mainForm, setMainForm] = useState({ N:'', P:'', K:'', temperature:'', humidity:'', ph:'', rainfall:'' })
   const [mainResult, setMainResult] = useState(null)
   const [selectedCrop, setSelectedCrop] = useState(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherCity, setWeatherCity]       = useState('')
+  const [weatherFetched, setWeatherFetched] = useState(false)
   const [yieldForm, setYieldForm]   = useState({ rainfall:'', temperature:'', pesticides:'', year:'2024' })
   const [yieldResult, setYieldResult] = useState(null)
   const [diseaseForm, setDiseaseForm] = useState({ crop:'rice', symptoms:[], method:'symptoms' })
@@ -210,6 +213,50 @@ export default function App() {
     return () => clearInterval(interval)
   }, [tab, userPickedCrop])
   // ─────────────────────────────────────────────────────────────────────────
+
+  const fetchWeather = async () => {
+    if (!weatherCity.trim()) return
+    setWeatherLoading(true)
+    try {
+      const API_KEY = '594fec36c503ba3149eeca629e995acf'
+      const geoRes  = await axios.get(
+        `https://api.openweathermap.org/geo/1.0/direct?q=${weatherCity},IN&limit=1&appid=${API_KEY}`
+      )
+      if (!geoRes.data.length) { setError('City not found. Try again.'); setWeatherLoading(false); return }
+
+      const { lat, lon } = geoRes.data[0]
+
+      const weatherRes = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`
+      )
+
+      const forecastRes = await axios.get(
+        `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&cnt=40`
+      )
+
+      const temp     = weatherRes.data.main.temp
+      const humidity = weatherRes.data.main.humidity
+
+      let totalRain = 0
+      forecastRes.data.list.forEach(item => {
+        if (item.rain && item.rain['3h']) totalRain += item.rain['3h']
+      })
+      const monthlyRainEstimate = Math.round(totalRain * 4.3)
+
+      setMainForm(prev => ({
+        ...prev,
+        temperature: String(Math.round(temp * 10) / 10),
+        humidity   : String(humidity),
+        rainfall   : String(monthlyRainEstimate)
+      }))
+      setWeatherFetched(true)
+      setError('')
+    } catch(e) {
+      setError('Weather fetch failed. Check city name or API key.')
+    } finally {
+      setWeatherLoading(false)
+    }
+  }
 
   const handleMain = async e => {
     e.preventDefault(); setLoading(true); setError(''); setMainResult(null); setSelectedCrop(null)
@@ -390,7 +437,35 @@ export default function App() {
               </div>
               <div className="param-group">
                 <div className="param-label"><span className="param-dot"/>Weather Parameters</div>
-                <div className="grid-3">
+
+                {/* Auto-fetch weather */}
+                <div className="weather-fetch-row">
+                  <div className="field" style={{flex:1}}>
+                    <label>City Name <span className="unit">auto-fill weather</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hyderabad"
+                      value={weatherCity}
+                      onChange={e => { setWeatherCity(e.target.value); setWeatherFetched(false) }}
+                      onKeyDown={e => e.key === 'Enter' && fetchWeather()}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-weather"
+                    onClick={fetchWeather}
+                    disabled={weatherLoading || !weatherCity.trim()}>
+                    {weatherLoading ? '...' : weatherFetched ? '✓ Fetched' : '⬡ Fetch'}
+                  </button>
+                </div>
+
+                {weatherFetched && (
+                  <div className="weather-fetched-info">
+                    ◉ Weather auto-filled for {weatherCity} — edit manually if needed
+                  </div>
+                )}
+
+                <div className="grid-3" style={{marginTop:'12px'}}>
                   {[['temperature','Temperature','°C'],['humidity','Humidity','%'],['rainfall','Rainfall','mm']].map(([k,l,u]) => (
                     <div className="field" key={k}>
                       <label>{l} <span className="unit">{u}</span></label>
