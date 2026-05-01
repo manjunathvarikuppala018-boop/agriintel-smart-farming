@@ -1,4 +1,3 @@
-import gdown
 import os
 import sys
 import json
@@ -6,6 +5,7 @@ import time
 import warnings
 import numpy as np
 import joblib
+import requests
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -16,21 +16,24 @@ BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-MODEL_FILES = {
-    'random_forest.pkl'         : '1y_Dc4akcc_E7opi0Y5bL6_QKTvRv4ELt',
-    'scaler.pkl'                : '1j4MhPUAlO9abpp59ewFvkPwohyj5v6Um',
-    'label_encoder.pkl'         : '1iqK6fxDZlvieNMPQMRaVsApMweJ6VVFt',
-    'yield_model.pkl'           : '1EkwHw56JMxazQaETjbkmVamOH1fPZIIy',
-    'yield_scaler.pkl'          : '1a6EantV1Jy0f0DpGrPAeoIAImSKEXiRh',
-    'disease_db.json'           : '1BCEWzVAXHMcjceev_fGBigI3gTN3g4zk',
-    'disease_cnn.tflite'        : '1o8uEDjf0IMjRfQoSUyOvS8xN93URni-v',
-    'disease_class_labels.json' : '1iEfpO6ObScyikuwqlCJtxoaZzab287EF',
-}
+HF_BASE = "https://huggingface.co/manjunathvarikuppala018/agriintel-models/resolve/main"
+
+MODEL_FILES = [
+    'random_forest.pkl',
+    'scaler.pkl',
+    'label_encoder.pkl',
+    'yield_model.pkl',
+    'yield_scaler.pkl',
+    'disease_db.json',
+    'disease_cnn.tflite',
+    'disease_class_labels.json',
+]
 
 print("=== Checking model files ===")
-for filename, file_id in MODEL_FILES.items():
+for filename in MODEL_FILES:
     filepath = os.path.join(MODEL_DIR, filename)
 
+    # Force delete cached pkl files to avoid numpy version issues
     if filepath.endswith('.pkl') and os.path.exists(filepath):
         os.remove(filepath)
         print(f"Removed cached: {filename}")
@@ -38,13 +41,14 @@ for filename, file_id in MODEL_FILES.items():
     if not os.path.exists(filepath):
         print(f"Downloading {filename}...")
         try:
-            gdown.download(id=file_id, output=filepath, quiet=False)
-            if os.path.exists(filepath):
-                size = os.path.getsize(filepath) / (1024 * 1024)
-                print(f"Downloaded {filename} ({size:.1f} MB)")
-            else:
-                print(f"Failed: {filename}")
-                sys.exit(1)
+            url = f"{HF_BASE}/{filename}"
+            response = requests.get(url, stream=True, timeout=120)
+            response.raise_for_status()
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            size = os.path.getsize(filepath) / (1024 * 1024)
+            print(f"Downloaded {filename} ({size:.1f} MB)")
         except Exception as e:
             print(f"Error downloading {filename}: {e}")
             sys.exit(1)

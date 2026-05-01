@@ -51,6 +51,7 @@ while True:
         print("-" * 50)
 
     except KeyboardInterrupt:
+        
         print("\nStopped.")
         ser.close()
         break
