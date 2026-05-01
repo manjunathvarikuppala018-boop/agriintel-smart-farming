@@ -81,14 +81,23 @@ labels_path        = os.path.join(MODEL_DIR, 'disease_class_labels.json')
 
 if os.path.exists(tflite_path) and os.path.exists(labels_path):
     try:
-        import tensorflow as tf
-        tflite_interpreter = tf.lite.Interpreter(model_path=tflite_path)
+        import tflite_runtime.interpreter as tflite
+        tflite_interpreter = tflite.Interpreter(model_path=tflite_path)
         tflite_interpreter.allocate_tensors()
         with open(labels_path) as f:
             label_map = json.load(f)
         print("TFLite model loaded successfully")
     except Exception as e:
-        print(f"TFLite load failed: {e}")
+        print(f"tflite_runtime failed, trying tensorflow: {e}")
+        try:
+            import tensorflow as tf
+            tflite_interpreter = tf.lite.Interpreter(model_path=tflite_path)
+            tflite_interpreter.allocate_tensors()
+            with open(labels_path) as f:
+                label_map = json.load(f)
+            print("TFLite model loaded via tensorflow")
+        except Exception as e2:
+            print(f"TFLite load failed: {e2}")
 else:
     print("TFLite model file not found — image disease detection unavailable")
 
