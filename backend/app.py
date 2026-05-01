@@ -32,17 +32,14 @@ MODEL_FILES = [
 print("=== Checking model files ===")
 for filename in MODEL_FILES:
     filepath = os.path.join(MODEL_DIR, filename)
-
-    # Force delete cached pkl files to avoid numpy version issues
     if filepath.endswith('.pkl') and os.path.exists(filepath):
         os.remove(filepath)
         print(f"Removed cached: {filename}")
-
     if not os.path.exists(filepath):
         print(f"Downloading {filename}...")
         try:
-            url = f"{HF_BASE}/{filename}"
-            response = requests.get(url, stream=True, timeout=120)
+            url      = f"{HF_BASE}/{filename}"
+            response = requests.get(url, stream=True, timeout=300)
             response.raise_for_status()
             with open(filepath, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -73,7 +70,13 @@ try:
 except Exception as e:
     print(f"FATAL: Model loading failed: {e}")
     sys.exit(1)
-# ── TFLite inference (replaces full TensorFlow / Keras) ──────────────────────
+
+# ── Load disease DB ───────────────────────────────────────────────────────────
+with open(os.path.join(MODEL_DIR, 'disease_db.json')) as f:
+    DISEASE_DB = json.load(f)
+print("Disease DB loaded successfully")
+
+# ── TFLite ────────────────────────────────────────────────────────────────────
 tflite_interpreter = None
 label_map          = None
 tflite_path        = os.path.join(MODEL_DIR, 'disease_cnn.tflite')
@@ -88,33 +91,23 @@ if os.path.exists(tflite_path) and os.path.exists(labels_path):
             label_map = json.load(f)
         print("TFLite model loaded successfully")
     except Exception as e:
-        print(f"tflite_runtime failed, trying tensorflow: {e}")
-        try:
-            import tflite_runtime.interpreter as tflite
-            tflite_interpreter = tflite.Interpreter(model_path=tflite_path)
-            tflite_interpreter.allocate_tensors()
-            with open(labels_path) as f:
-                label_map = json.load(f)
-            print("TFLite model loaded via tensorflow")
-        except Exception as e2:
-            print(f"TFLite load failed: {e2}")
+        print(f"TFLite load failed: {e}")
+        tflite_interpreter = None
 else:
-    print("TFLite model file not found — image disease detection unavailable")
+    print("TFLite model file not found")
 
 # ─────────────────────────────────────────────────────────────────────────────
 
 CROP_MOISTURE = {
     'rice'      : {'min': 60, 'max': 100, 'optimal': 72},
-    'wheat'     : {'min': 35, 'max': 55, 'optimal': 45},
-    'maize'     : {'min': 40, 'max': 65, 'optimal': 52},
-    'cotton'    : {'min': 30, 'max': 50, 'optimal': 40},
-    'tomato'    : {'min': 45, 'max': 70, 'optimal': 58},
-    'potato'    : {'min': 50, 'max': 75, 'optimal': 62},
-    'sugarcane' : {'min': 55, 'max': 80, 'optimal': 68},
-    'default'   : {'min': 40, 'max': 65, 'optimal': 52}
+    'wheat'     : {'min': 35, 'max': 55,  'optimal': 45},
+    'maize'     : {'min': 40, 'max': 65,  'optimal': 52},
+    'cotton'    : {'min': 30, 'max': 50,  'optimal': 40},
+    'tomato'    : {'min': 45, 'max': 70,  'optimal': 58},
+    'potato'    : {'min': 50, 'max': 75,  'optimal': 62},
+    'sugarcane' : {'min': 55, 'max': 80,  'optimal': 68},
+    'default'   : {'min': 40, 'max': 65,  'optimal': 52}
 }
-
-
 
 CROP_REQUIREMENTS = {
     'rice'      : {'temp_min': 20, 'temp_max': 35, 'humidity_min': 60, 'humidity_max': 85, 'moisture_min': 60, 'moisture_max': 100},
@@ -128,43 +121,22 @@ CROP_REQUIREMENTS = {
 
 def irrigation_advice(rainfall, temperature, humidity):
     if rainfall > 200:
-        return {
-            'level'  : 'Low',
-            'amount' : '100-150 mm/season',
-            'method' : 'Rainfall is sufficient. Supplement only during dry spells.'
-        }
+        return {'level': 'Low',      'amount': '100-150 mm/season', 'method': 'Rainfall is sufficient. Supplement only during dry spells.'}
     elif rainfall > 100:
-        return {
-            'level'  : 'Moderate',
-            'amount' : '200-300 mm/season',
-            'method' : 'Drip or sprinkler irrigation recommended.'
-        }
+        return {'level': 'Moderate', 'amount': '200-300 mm/season', 'method': 'Drip or sprinkler irrigation recommended.'}
     else:
-        return {
-            'level'  : 'High',
-            'amount' : '350-500 mm/season',
-            'method' : 'Flood or furrow irrigation required. Monitor soil moisture daily.'
-        }
-
+        return {'level': 'High',     'amount': '350-500 mm/season', 'method': 'Flood or furrow irrigation required. Monitor soil moisture daily.'}
 
 def fertilizer_advice(n, p, k):
     advice = []
-    if n < 40:
-        advice.append('Nitrogen deficient — apply Urea (46-0-0) at 50 kg/ha')
-    elif n > 100:
-        advice.append('Nitrogen excess — reduce nitrogenous fertilizer')
-    if p < 20:
-        advice.append('Phosphorus deficient — apply DAP (18-46-0) at 30 kg/ha')
-    elif p > 100:
-        advice.append('Phosphorus excess — skip phosphatic fertilizers')
-    if k < 20:
-        advice.append('Potassium deficient — apply MOP (0-0-60) at 25 kg/ha')
-    elif k > 150:
-        advice.append('Potassium excess — avoid potassic fertilizers')
-    if not advice:
-        advice.append('Soil nutrients balanced — apply standard NPK 10-10-10')
+    if n < 40:   advice.append('Nitrogen deficient — apply Urea (46-0-0) at 50 kg/ha')
+    elif n > 100: advice.append('Nitrogen excess — reduce nitrogenous fertilizer')
+    if p < 20:   advice.append('Phosphorus deficient — apply DAP (18-46-0) at 30 kg/ha')
+    elif p > 100: advice.append('Phosphorus excess — skip phosphatic fertilizers')
+    if k < 20:   advice.append('Potassium deficient — apply MOP (0-0-60) at 25 kg/ha')
+    elif k > 150: advice.append('Potassium excess — avoid potassic fertilizers')
+    if not advice: advice.append('Soil nutrients balanced — apply standard NPK 10-10-10')
     return advice
-
 
 def water_level_recommendation(moisture_pct, crop=None):
     crop_key     = crop.lower() if crop else 'default'
@@ -173,51 +145,31 @@ def water_level_recommendation(moisture_pct, crop=None):
     max_req      = requirements['max']
     optimal      = requirements['optimal']
     deficit      = optimal - moisture_pct
-
     if moisture_pct < min_req - 10:
-        return {
-            'status'          : 'Critical',
-            'water_needed'    : True,
-            'action'          : 'Irrigate immediately',
-            'urgency'         : 'High',
-            'water_amount_mm' : round(deficit * 0.8, 1)
-        }
+        return {'status': 'Critical', 'water_needed': True,  'action': 'Irrigate immediately',                    'urgency': 'High',   'water_amount_mm': round(deficit * 0.8, 1)}
     elif moisture_pct < min_req:
-        return {
-            'status'          : 'Low',
-            'water_needed'    : True,
-            'action'          : 'Irrigation required within 24 hours',
-            'urgency'         : 'Medium',
-            'water_amount_mm' : round(deficit * 0.5, 1)
-        }
+        return {'status': 'Low',      'water_needed': True,  'action': 'Irrigation required within 24 hours',     'urgency': 'Medium', 'water_amount_mm': round(deficit * 0.5, 1)}
     elif moisture_pct <= max_req:
-        return {
-            'status'          : 'Optimal',
-            'water_needed'    : False,
-            'action'          : 'No irrigation needed',
-            'urgency'         : 'None',
-            'water_amount_mm' : 0
-        }
+        return {'status': 'Optimal',  'water_needed': False, 'action': 'No irrigation needed',                    'urgency': 'None',   'water_amount_mm': 0}
     else:
-        return {
-            'status'          : 'Excess',
-            'water_needed'    : False,
-            'action'          : 'Stop irrigation. Improve drainage.',
-            'urgency'         : 'Low',
-            'water_amount_mm' : 0
-        }
+        return {'status': 'Excess',   'water_needed': False, 'action': 'Stop irrigation. Improve drainage.',      'urgency': 'Low',    'water_amount_mm': 0}
 
+app = Flask(__name__)
+CORS(app, origins=[
+    'http://localhost:5173',
+    'https://agriintel-smart-farming.vercel.app',
+    'https://*.vercel.app'
+])
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
-        'status'      : 'running',
-        'cnn_loaded'  : tflite_interpreter is not None,
-        'cnn_backend' : 'tflite-runtime',
-        'models'      : ['random_forest', 'yield_model', 'disease_db', 'cnn_tflite'],
-        'version'     : '2.0.0'
+        'status'     : 'running',
+        'cnn_loaded' : tflite_interpreter is not None,
+        'cnn_backend': 'tflite-runtime',
+        'models'     : ['random_forest', 'yield_model', 'disease_db', 'cnn_tflite'],
+        'version'    : '2.0.0'
     })
-
 
 @app.route('/recommend', methods=['POST'])
 def recommend():
@@ -240,29 +192,21 @@ def recommend():
         crop_name   = le.inverse_transform(prediction)[0]
         confidence  = round(float(probability.max()) * 100, 2)
 
-        top3_idx     = np.argsort(probability[0])[::-1][:5]
+        top5_idx     = np.argsort(probability[0])[::-1][:5]
         alternatives = [
-            {
-                'crop'       : le.inverse_transform([i])[0],
-                'confidence' : round(float(probability[0][i]) * 100, 2)
-            }
-            for i in top3_idx
+            {'crop': le.inverse_transform([i])[0], 'confidence': round(float(probability[0][i]) * 100, 2)}
+            for i in top5_idx
         ]
-
         return jsonify({
             'crop'         : crop_name,
             'confidence'   : confidence,
             'alternatives' : alternatives,
             'irrigation'   : irrigation_advice(rain, temp, hum),
             'fertilizer'   : fertilizer_advice(n, p, k),
-            'input_summary': {
-                'soil'   : {'N': n, 'P': p, 'K': k, 'ph': ph},
-                'weather': {'temperature': temp, 'humidity': hum, 'rainfall': rain}
-            }
+            'input_summary': {'soil': {'N': n, 'P': p, 'K': k, 'ph': ph}, 'weather': {'temperature': temp, 'humidity': hum, 'rainfall': rain}}
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/yield', methods=['POST'])
 def predict_yield():
@@ -278,6 +222,9 @@ def predict_yield():
             float(data['year'])
         ]])
         prediction = yield_model.predict(features)[0]
+        # Handle log-transformed model output
+        if prediction < 100:
+            prediction = np.expm1(prediction)
         return jsonify({
             'yield_hg_per_ha'    : round(float(prediction), 2),
             'yield_kg_per_ha'    : round(float(prediction) / 10, 2),
@@ -286,21 +233,15 @@ def predict_yield():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/disease/symptoms', methods=['POST'])
 def disease_symptoms():
     data     = request.get_json()
     crop     = data.get('crop', '').lower().strip()
     symptoms = [s.lower().strip() for s in data.get('symptoms', [])]
-
     if not crop:
         return jsonify({'error': 'Crop name is required'}), 400
     if crop not in DISEASE_DB:
-        return jsonify({
-            'status'          : 'crop_not_found',
-            'supported_crops' : list(DISEASE_DB.keys())
-        }), 404
-
+        return jsonify({'status': 'crop_not_found', 'supported_crops': list(DISEASE_DB.keys())}), 404
     results = []
     for disease_name, info in DISEASE_DB[crop].items():
         known   = info['symptoms']
@@ -308,62 +249,43 @@ def disease_symptoms():
         score   = len(matched) / len(known) if known else 0
         if score > 0:
             results.append({
-                'disease'          : disease_name.replace('_', ' ').title(),
-                'confidence_pct'   : round(score * 100, 1),
-                'severity'         : info['severity'],
-                'cause'            : info['cause'],
-                'matched_symptoms' : matched,
-                'treatment'        : info['treatment'],
-                'prevention'       : info['prevention'],
-                'method'           : 'rule_based'
+                'disease'         : disease_name.replace('_', ' ').title(),
+                'confidence_pct'  : round(score * 100, 1),
+                'severity'        : info['severity'],
+                'cause'           : info['cause'],
+                'matched_symptoms': matched,
+                'treatment'       : info['treatment'],
+                'prevention'      : info['prevention'],
+                'method'          : 'rule_based'
             })
-
     results.sort(key=lambda x: x['confidence_pct'], reverse=True)
-    return jsonify({
-        'crop'   : crop,
-        'status' : 'found' if results else 'no_match',
-        'results': results
-    })
-
+    return jsonify({'crop': crop, 'status': 'found' if results else 'no_match', 'results': results})
 
 @app.route('/disease/image', methods=['POST'])
 def disease_image():
     if tflite_interpreter is None:
-        return jsonify({
-            'error'  : 'CNN model not loaded',
-            'message': 'Use symptom-based detection instead.'
-        }), 503
+        return jsonify({'error': 'CNN model not loaded', 'message': 'Use symptom-based detection instead.'}), 503
     if 'file' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
     try:
         from PIL import Image
         import io
-
         file      = request.files['file']
         img       = Image.open(io.BytesIO(file.read())).convert('RGB').resize((64, 64))
         img_array = np.expand_dims(np.array(img, dtype=np.float32) / 255.0, axis=0)
-
-        # TFLite inference
         input_details  = tflite_interpreter.get_input_details()
         output_details = tflite_interpreter.get_output_details()
-
         tflite_interpreter.set_tensor(input_details[0]['index'], img_array)
         tflite_interpreter.invoke()
         predictions = tflite_interpreter.get_tensor(output_details[0]['index'])[0]
-
         top3_idx = np.argsort(predictions)[::-1][:3]
         results  = [
-            {
-                'rank'       : i + 1,
-                'disease'    : label_map[str(idx)].replace('_', ' ').replace('__', ' - '),
-                'confidence' : round(float(predictions[idx]) * 100, 2)
-            }
+            {'rank': i+1, 'disease': label_map[str(idx)].replace('_',' ').replace('__',' - '), 'confidence': round(float(predictions[idx])*100, 2)}
             for i, idx in enumerate(top3_idx)
         ]
         return jsonify({'method': 'tflite_image', 'results': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/sensors', methods=['POST'])
 def sensor_reading():
@@ -372,34 +294,18 @@ def sensor_reading():
     humidity    = float(data.get('humidity', 0))
     temperature = float(data.get('temperature', 0))
     crop        = data.get('crop', None)
-
-    humidity_status = (
-        'Low'     if humidity < 30  else
-        'Optimal' if humidity <= 70 else
-        'High'
-    )
+    humidity_status = 'Low' if humidity < 30 else 'Optimal' if humidity <= 70 else 'High'
     humidity_advice = (
-        'Risk of drought stress. Consider misting.'
-        if humidity < 30 else
-        'Humidity levels are ideal for plant growth.'
-        if humidity <= 70 else
+        'Risk of drought stress. Consider misting.' if humidity < 30 else
+        'Humidity levels are ideal for plant growth.' if humidity <= 70 else
         'High humidity - risk of fungal disease. Improve ventilation.'
     )
     return jsonify({
         'moisture'   : water_level_recommendation(moisture, crop),
-        'humidity'   : {
-            'value'  : humidity,
-            'status' : humidity_status,
-            'advice' : humidity_advice
-        },
-        'temperature': {
-            'value'  : temperature,
-            'unit'   : 'Celsius'
-        },
+        'humidity'   : {'value': humidity, 'status': humidity_status, 'advice': humidity_advice},
+        'temperature': {'value': temperature, 'unit': 'Celsius'},
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S')
     })
-
-
 
 latest_sensor_data = {}
 
@@ -411,41 +317,26 @@ def sensor_update():
     humidity    = float(data.get('humidity', 0))
     temperature = float(data.get('temperature', 0))
     crop        = data.get('crop', 'rice')
-
-    humidity_status = (
-        'Low'     if humidity < 30  else
-        'Optimal' if humidity <= 70 else
-        'High'
-    )
+    humidity_status = 'Low' if humidity < 30 else 'Optimal' if humidity <= 70 else 'High'
     humidity_advice = (
-        'Risk of drought stress. Consider misting.'
-        if humidity < 30 else
-        'Humidity levels are ideal for plant growth.'
-        if humidity <= 70 else
+        'Risk of drought stress. Consider misting.' if humidity < 30 else
+        'Humidity levels are ideal for plant growth.' if humidity <= 70 else
         'High humidity - risk of fungal disease. Improve ventilation.'
     )
-
     latest_sensor_data = {
         'moisture'   : water_level_recommendation(moisture, crop),
         'humidity'   : {'value': humidity, 'status': humidity_status, 'advice': humidity_advice},
         'temperature': {'value': temperature, 'unit': 'Celsius'},
         'timestamp'  : time.strftime('%Y-%m-%d %H:%M:%S'),
-        'raw'        : {
-            'moisture'   : moisture,
-            'humidity'   : humidity,
-            'temperature': temperature,
-            'crop'       : crop
-        }
+        'raw'        : {'moisture': moisture, 'humidity': humidity, 'temperature': temperature, 'crop': crop}
     }
     return jsonify({'status': 'updated', 'data': latest_sensor_data})
-
 
 @app.route('/sensors/live', methods=['GET'])
 def sensor_live():
     if not latest_sensor_data:
         return jsonify({'status': 'no_data'})
     return jsonify(latest_sensor_data)
-
 
 @app.route('/sensors/suitability', methods=['POST'])
 def crop_suitability():
@@ -454,54 +345,33 @@ def crop_suitability():
     moisture    = float(data.get('moisture', 0))
     humidity    = float(data.get('humidity', 0))
     temperature = float(data.get('temperature', 0))
-
     if crop not in CROP_REQUIREMENTS:
         return jsonify({'error': f'Crop {crop} not found'}), 404
-
-    req     = CROP_REQUIREMENTS[crop]
-    issues  = []
-    score   = 0
-    total   = 3
-
-    # Temperature check
+    req    = CROP_REQUIREMENTS[crop]
+    issues = []
+    score  = 0
+    total  = 3
     if req['temp_min'] <= temperature <= req['temp_max']:
-        score += 1
-        temp_status = 'optimal'
+        score += 1; temp_status = 'optimal'
     elif temperature < req['temp_min']:
-        issues.append(f'Temperature too low ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.')
-        temp_status = 'low'
+        issues.append(f'Temperature too low ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.'); temp_status = 'low'
     else:
-        issues.append(f'Temperature too high ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.')
-        temp_status = 'high'
-
-    # Humidity check
+        issues.append(f'Temperature too high ({temperature}°C). {crop.title()} needs {req["temp_min"]}–{req["temp_max"]}°C.'); temp_status = 'high'
     if req['humidity_min'] <= humidity <= req['humidity_max']:
-        score += 1
-        hum_status = 'optimal'
+        score += 1; hum_status = 'optimal'
     elif humidity < req['humidity_min']:
-        issues.append(f'Humidity too low ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.')
-        hum_status = 'low'
+        issues.append(f'Humidity too low ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.'); hum_status = 'low'
     else:
-        issues.append(f'Humidity too high ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.')
-        hum_status = 'high'
-
-    # Moisture check
+        issues.append(f'Humidity too high ({humidity}%). {crop.title()} needs {req["humidity_min"]}–{req["humidity_max"]}%.'); hum_status = 'high'
     if req['moisture_min'] <= moisture <= req['moisture_max']:
-        score += 1
-        moist_status = 'optimal'
+        score += 1; moist_status = 'optimal'
     elif moisture < req['moisture_min']:
-        issues.append(f'Soil moisture too low ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.')
-        moist_status = 'low'
+        issues.append(f'Soil moisture too low ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.'); moist_status = 'low'
     else:
-        issues.append(f'Soil moisture too high ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.')
-        moist_status = 'high'
-
-    suitable   = score == total
+        issues.append(f'Soil moisture too high ({moisture}%). {crop.title()} needs {req["moisture_min"]}–{req["moisture_max"]}%.'); moist_status = 'high'
+    suitable        = score == total
     suitability_pct = round((score / total) * 100)
-
-    # Water requirement if proceeding anyway
-    moisture_rec = water_level_recommendation(moisture, crop)
-
+    moisture_rec    = water_level_recommendation(moisture, crop)
     return jsonify({
         'crop'            : crop,
         'suitable'        : suitable,
@@ -510,9 +380,9 @@ def crop_suitability():
         'total'           : total,
         'issues'          : issues,
         'conditions'      : {
-            'temperature' : {'value': temperature, 'status': temp_status,  'required': f"{req['temp_min']}–{req['temp_max']}°C"},
-            'humidity'    : {'value': humidity,    'status': hum_status,   'required': f"{req['humidity_min']}–{req['humidity_max']}%"},
-            'moisture'    : {'value': moisture,    'status': moist_status, 'required': f"{req['moisture_min']}–{req['moisture_max']}%"},
+            'temperature': {'value': temperature, 'status': temp_status,  'required': f"{req['temp_min']}–{req['temp_max']}°C"},
+            'humidity'   : {'value': humidity,    'status': hum_status,   'required': f"{req['humidity_min']}–{req['humidity_max']}%"},
+            'moisture'   : {'value': moisture,    'status': moist_status, 'required': f"{req['moisture_min']}–{req['moisture_max']}%"},
         },
         'water_requirement': moisture_rec,
         'recommendation'  : 'Conditions are ideal for growing ' + crop + '.' if suitable else 'Conditions are not fully suitable. Adjust before planting.',
