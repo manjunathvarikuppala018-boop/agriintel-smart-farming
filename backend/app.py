@@ -58,22 +58,21 @@ for filename in MODEL_FILES:
 
 print("=== All models ready ===")
 
-app = Flask(__name__)
-CORS(app, origins=[
-    'http://localhost:5173',
-    'https://agriintel-smart-farming.vercel.app',
-    'https://*.vercel.app'
-])
-
-crop_model   = joblib.load(os.path.join(MODEL_DIR, 'random_forest.pkl'))
-scaler       = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
-le           = joblib.load(os.path.join(MODEL_DIR, 'label_encoder.pkl'))
-yield_model  = joblib.load(os.path.join(MODEL_DIR, 'yield_model.pkl'))
-yield_scaler = joblib.load(os.path.join(MODEL_DIR, 'yield_scaler.pkl'))
-
-with open(os.path.join(MODEL_DIR, 'disease_db.json')) as f:
-    DISEASE_DB = json.load(f)
-
+try:
+    print("Loading crop model...")
+    crop_model   = joblib.load(os.path.join(MODEL_DIR, 'random_forest.pkl'))
+    print("Loading scaler...")
+    scaler       = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
+    print("Loading label encoder...")
+    le           = joblib.load(os.path.join(MODEL_DIR, 'label_encoder.pkl'))
+    print("Loading yield model...")
+    yield_model  = joblib.load(os.path.join(MODEL_DIR, 'yield_model.pkl'))
+    print("Loading yield scaler...")
+    yield_scaler = joblib.load(os.path.join(MODEL_DIR, 'yield_scaler.pkl'))
+    print("All pkl models loaded successfully")
+except Exception as e:
+    print(f"FATAL: Model loading failed: {e}")
+    sys.exit(1)
 # ── TFLite inference (replaces full TensorFlow / Keras) ──────────────────────
 tflite_interpreter = None
 label_map          = None
